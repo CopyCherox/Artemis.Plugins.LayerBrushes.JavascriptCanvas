@@ -1,0 +1,4 @@
+{
+  "ScriptName": "Smooth Gradient Flow",
+  "JavaScriptCode": "// =========================\n// CONFIG\n// =========================\nconst STEP = 4;           // resolution\nconst SPEED = 0.3;        // animation speed\nconst HUE_OFFSET = 0.0;   // base hue offset\nconst SATURATION = 1;     // 0-1\nconst LIGHTNESS = 0.5;    // 0-1\n\n// =========================\n// RENDER\n// =========================\nctx.clear(0, 0, 0);\n\nfor (let x = 0; x \u003C width; x \u002B= STEP) {\n    for (let y = 0; y \u003C height; y \u002B= STEP) {\n\n        let hue = (Math.sin(x * 0.02 \u002B time * SPEED) \u002B Math.cos(y * 0.02 \u002B time * SPEED)) * 0.5 \u002B HUE_OFFSET;\n        hue = (hue % 1 \u002B 1) % 1; // wrap 0-1\n\n        let rgb = ctx.hslToRgb(hue, SATURATION, LIGHTNESS);\n\n        ctx.fillStyle(rgb.r, rgb.g, rgb.b);\n        ctx.fillRect(x, y, STEP, STEP);\n    }\n}"
+}

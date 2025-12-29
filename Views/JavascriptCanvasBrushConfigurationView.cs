@@ -100,6 +100,24 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.Views
             });
             topPanel.Children.Add(selectorPanel);
 
+            selectorPanel.Children.Add(new Button
+            {
+                Content = "Export...",
+                [!Button.CommandProperty] = new Avalonia.Data.Binding("ExportScriptCommand"),
+                Padding = new Thickness(10, 5),
+                Background = new SolidColorBrush(Color.Parse("#16A085")),
+                Foreground = Brushes.White
+            });
+
+            selectorPanel.Children.Add(new Button
+            {
+                Content = "Import...",
+                [!Button.CommandProperty] = new Avalonia.Data.Binding("ImportScriptCommand"),
+                Padding = new Thickness(10, 5),
+                Background = new SolidColorBrush(Color.Parse("#8E44AD")),
+                Foreground = Brushes.White
+            });
+
             // Script name (removed checkbox)
             var namePanel = new StackPanel
             {

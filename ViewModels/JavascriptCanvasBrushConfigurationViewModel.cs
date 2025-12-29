@@ -96,6 +96,11 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.ViewModels
             DeleteScriptCommand = ReactiveCommand.Create(DeleteScript, this.WhenAnyValue(x => x.SelectedScript).Select(s => s != null));
             ApplyScriptCommand = ReactiveCommand.Create(ApplyScript);
 
+            ExportScriptCommand = ReactiveCommand.Create(ExportScript,
+    this.WhenAnyValue(x => x.SelectedScript).Select(s => s != null));
+            ImportScriptCommand = ReactiveCommand.Create(ImportScript);
+
+
             // Watch for script selection changes
             this.WhenAnyValue(x => x.SelectedScript)
                 .Subscribe(script =>
@@ -243,15 +248,16 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.ViewModels
                 IsGlobal = false
             };
 
-            // ✅ Subscribe to property changes for the new script
-            newScript.PropertyChanged += Script_PropertyChanged;
+            // Subscribe to property changes for the new script
+            newScript.PropertyChanged += ScriptPropertyChanged;
 
             Scripts.Add(newScript);
             SelectedScript = newScript;
 
-            // Save to LayerProperty
+            // IMPORTANT: Save immediately after adding
             brush.Properties.SaveScripts();
         }
+
 
 
         private async void DeleteScript()
@@ -442,20 +448,323 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.ViewModels
         }
 
 
+
+
+
+        public ReactiveCommand<Unit, Unit> ExportScriptCommand { get; }
+        public ReactiveCommand<Unit, Unit> ImportScriptCommand { get; }
+
+        private async void ExportScript()
+        {
+            if (SelectedScript == null) return;
+
+            try
+            {
+                var mainWindow = Avalonia.Application.Current?.ApplicationLifetime is
+                    Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+                    ? desktop.MainWindow : null;
+
+                if (mainWindow == null) return;
+
+                var storageProvider = mainWindow.StorageProvider;
+
+                var file = await storageProvider.SaveFilePickerAsync(new Avalonia.Platform.Storage.FilePickerSaveOptions
+                {
+                    Title = "Export Script",
+                    SuggestedFileName = $"{SelectedScript.ScriptName}.json",
+                    DefaultExtension = "json",
+                    FileTypeChoices = new[]
+                    {
+                new Avalonia.Platform.Storage.FilePickerFileType("JSON Files")
+                {
+                    Patterns = new[] { "*.json" }
+                },
+                new Avalonia.Platform.Storage.FilePickerFileType("All Files")
+                {
+                    Patterns = new[] { "*.*" }
+                }
+            }
+                });
+
+                if (file != null)
+                {
+                    // Save current editor code to script before export
+                    if (SelectedScript != null)
+                    {
+                        SelectedScript.JavaScriptCode = currentEditorCode;
+                    }
+
+                    // Create anonymous object with only the fields we want to export
+                    var exportData = new
+                    {
+                        ScriptName = SelectedScript.ScriptName,
+                        JavaScriptCode = SelectedScript.JavaScriptCode
+                    };
+
+                    var json = System.Text.Json.JsonSerializer.Serialize(exportData,
+                        new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+
+                    await using var stream = await file.OpenWriteAsync();
+                    await using var writer = new System.IO.StreamWriter(stream);
+                    await writer.WriteAsync(json);
+
+                    System.Diagnostics.Debug.WriteLine($"Script exported to: {file.Name}");
+                }
+            }
+            catch (Exception ex)
+            {
+                ErrorMessage = $"Export failed: {ex.Message}";
+                System.Diagnostics.Debug.WriteLine($"Export error: {ex}");
+            }
+        }
+
+
+
+        private async void ImportScript()
+        {
+            try
+            {
+                var mainWindow = Avalonia.Application.Current?.ApplicationLifetime is
+                    Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+                    ? desktop.MainWindow : null;
+
+                if (mainWindow == null) return;
+
+                var storageProvider = mainWindow.StorageProvider;
+
+                var files = await storageProvider.OpenFilePickerAsync(new Avalonia.Platform.Storage.FilePickerOpenOptions
+                {
+                    Title = "Import Script(s)",
+                    AllowMultiple = true,  // Changed to true
+                    FileTypeFilter = new[]
+                    {
+                new Avalonia.Platform.Storage.FilePickerFileType("JSON Files")
+                {
+                    Patterns = new[] { "*.json" }
+                },
+                new Avalonia.Platform.Storage.FilePickerFileType("All Files")
+                {
+                    Patterns = new[] { "*.*" }
+                }
+            }
+                });
+
+                if (files.Count > 0)
+                {
+                    int successCount = 0;
+                    int skipCount = 0;
+                    int errorCount = 0;
+                    JavascriptScriptModel? lastImportedScript = null;
+
+                    foreach (var file in files)
+                    {
+                        try
+                        {
+                            await using var stream = await file.OpenReadAsync();
+                            using var reader = new System.IO.StreamReader(stream);
+                            var json = await reader.ReadToEndAsync();
+
+                            // Deserialize to get only ScriptName and JavaScriptCode
+                            using var jsonDoc = System.Text.Json.JsonDocument.Parse(json);
+                            var root = jsonDoc.RootElement;
+
+                            var scriptName = root.GetProperty("ScriptName").GetString();
+                            var scriptCode = root.GetProperty("JavaScriptCode").GetString();
+
+                            if (string.IsNullOrEmpty(scriptName) || string.IsNullOrEmpty(scriptCode))
+                            {
+                                System.Diagnostics.Debug.WriteLine($"Invalid script data in {file.Name}");
+                                errorCount++;
+                                continue;
+                            }
+
+                            // Create new script with imported data
+                            var importedScript = new JavascriptScriptModel
+                            {
+                                ScriptName = scriptName,
+                                JavaScriptCode = scriptCode,
+                                IsEnabled = false,
+                                IsGlobal = false
+                            };
+
+                            var existingScript = Scripts.FirstOrDefault(s =>
+                                s.ScriptName == importedScript.ScriptName);
+
+                            if (existingScript != null)
+                            {
+                                // For multiple imports, auto-rename conflicts
+                                int counter = 1;
+                                string newName = $"{importedScript.ScriptName} ({counter})";
+                                while (Scripts.Any(s => s.ScriptName == newName))
+                                {
+                                    counter++;
+                                    newName = $"{importedScript.ScriptName} ({counter})";
+                                }
+                                importedScript.ScriptName = newName;
+
+                                System.Diagnostics.Debug.WriteLine($"Script '{scriptName}' renamed to '{newName}' due to conflict");
+                            }
+
+                            importedScript.PropertyChanged += ScriptPropertyChanged;
+                            Scripts.Add(importedScript);
+                            lastImportedScript = importedScript;
+                            successCount++;
+
+                            System.Diagnostics.Debug.WriteLine($"Script imported from: {file.Name}");
+                        }
+                        catch (Exception fileEx)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"Error importing {file.Name}: {fileEx.Message}");
+                            errorCount++;
+                        }
+                    }
+
+                    // Save all imported scripts at once
+                    if (successCount > 0)
+                    {
+                        brush.Properties.SaveScripts();
+
+                        // Select the last imported script
+                        if (lastImportedScript != null)
+                        {
+                            SelectedScript = lastImportedScript;
+                        }
+                    }
+
+                    // Show summary message
+                    if (files.Count > 1)
+                    {
+                        var summaryParts = new System.Collections.Generic.List<string>();
+                        if (successCount > 0) summaryParts.Add($"{successCount} imported");
+                        if (errorCount > 0) summaryParts.Add($"{errorCount} failed");
+
+                        var summaryMessage = $"Import complete: {string.Join(", ", summaryParts)}";
+                        System.Diagnostics.Debug.WriteLine(summaryMessage);
+
+                        // Show summary dialog
+                        var summaryDialog = new Window
+                        {
+                            Title = "Import Complete",
+                            Width = 350,
+                            Height = 180,
+                            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                            CanResize = false,
+                            Background = new SolidColorBrush(Color.Parse("#2D2D2D"))
+                        };
+
+                        var panel = new StackPanel
+                        {
+                            Margin = new Thickness(20),
+                            Spacing = 20
+                        };
+
+                        var messageText = new System.Text.StringBuilder();
+                        messageText.AppendLine($"Imported {successCount} of {files.Count} script(s).");
+                        if (errorCount > 0)
+                        {
+                            messageText.AppendLine($"\n{errorCount} script(s) failed to import.");
+                        }
+
+                        panel.Children.Add(new TextBlock
+                        {
+                            Text = messageText.ToString(),
+                            FontSize = 14,
+                            TextWrapping = TextWrapping.Wrap,
+                            Foreground = Brushes.White
+                        });
+
+                        var okButton = new Button
+                        {
+                            Content = "OK",
+                            Width = 100,
+                            Padding = new Thickness(10, 5),
+                            Background = new SolidColorBrush(Color.Parse("#3498DB")),
+                            Foreground = Brushes.White,
+                            HorizontalAlignment = HorizontalAlignment.Center
+                        };
+
+                        okButton.Click += (s, e) => summaryDialog.Close();
+
+                        panel.Children.Add(okButton);
+                        summaryDialog.Content = panel;
+
+                        await summaryDialog.ShowDialog(mainWindow);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                ErrorMessage = $"Import failed: {ex.Message}";
+                System.Diagnostics.Debug.WriteLine($"Import error: {ex}");
+            }
+        }
+
+
+
+
+        private void ScriptPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(JavascriptScriptModel.IsGlobal))
+            {
+                var script = sender as JavascriptScriptModel;
+                if (script != null)
+                {
+                    brush.Properties.SaveScripts();
+                    if (script.IsGlobal)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Script {script.ScriptName} marked as GLOBAL and saved immediately");
+                    }
+                    else
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Script {script.ScriptName} unmarked as global and saved immediately");
+                    }
+                }
+            }
+            else if (e.PropertyName == nameof(JavascriptScriptModel.ScriptName))
+            {
+                var script = sender as JavascriptScriptModel;
+                if (script != null)
+                {
+                    // Save whenever script name changes
+                    brush.Properties.SaveScripts();
+                    System.Diagnostics.Debug.WriteLine($"Script renamed to {script.ScriptName} and saved");
+                }
+            }
+            else if (e.PropertyName == nameof(JavascriptScriptModel.JavaScriptCode))
+            {
+                // Optional: Save when code changes (might be too frequent)
+                // Uncomment if you want auto-save on code edits
+                // var script = sender as JavascriptScriptModel;
+                // if (script != null)
+                // {
+                //     brush.Properties.SaveScripts();
+                // }
+            }
+        }
+
+
+
+
         public new void Dispose()
         {
+            // Save scripts before disposing
+            brush.Properties.SaveScripts();
+
             updateTimer?.Stop();
             updateTimer = null;
             previewBitmap?.Dispose();
             previewBitmap = null;
             jsExecutor?.Dispose();
 
-            // ✅ Unsubscribe from all script property changes
+            // Unsubscribe from all script property changes
             foreach (var script in Scripts)
             {
-                script.PropertyChanged -= Script_PropertyChanged;
+                script.PropertyChanged -= ScriptPropertyChanged;
             }
+
+            base.Dispose();
         }
+
 
 
         ~JavascriptCanvasBrushConfigurationViewModel()

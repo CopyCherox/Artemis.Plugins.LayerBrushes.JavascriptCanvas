@@ -1,0 +1,4 @@
+{
+  "ScriptName": "Checkerboard Pulse",
+  "JavaScriptCode": "// =========================\r\n// CONFIG\r\n// =========================\r\nconst CELL = 20;\r\nconst PULSE_SPEED = 2.0;\r\n\r\n// =========================\r\n// RENDER\r\nctx.clear(0, 0, 0);\r\n\r\nfor (let x = 0; x \u003C width; x \u002B= CELL) {\r\n    for (let y = 0; y \u003C height; y \u002B= CELL) {\r\n\r\n        let row = Math.floor(y / CELL);\r\n        let col = Math.floor(x / CELL);\r\n\r\n        let pulse = Math.sin(time * PULSE_SPEED \u002B row \u002B col);\r\n        pulse = (pulse \u002B 1)/2;\r\n\r\n        ctx.fillStyle(255 * pulse, 100 * pulse, 200 * (1 - pulse));\r\n        ctx.fillRect(x, y, CELL, CELL);\r\n    }\r\n}\r\n"
+}

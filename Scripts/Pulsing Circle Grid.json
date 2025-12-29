@@ -1,0 +1,4 @@
+{
+  "ScriptName": "Pulsing Circle Grid",
+  "JavaScriptCode": "// =========================\n// CONFIG\n// =========================\nconst GRID_SIZE = 12;\nconst MAX_RADIUS = 20;\nconst PULSE_SPEED = 2.0;\n\n// =========================\n// RENDER\nctx.clear(0, 0, 0);\n\nfor (let i = 0; i \u003C= GRID_SIZE; i\u002B\u002B) {\n    for (let j = 0; j \u003C= GRID_SIZE; j\u002B\u002B) {\n\n        let x = i * width / GRID_SIZE;\n        let y = j * height / GRID_SIZE;\n\n        let pulse = (Math.sin(time * PULSE_SPEED \u002B i \u002B j) \u002B 1)/2;\n        let radius = MAX_RADIUS * pulse;\n\n        let hue = ((i\u002Bj)/GRID_SIZE \u002B time*0.1) % 1;\n        let rgb = ctx.hslToRgb(hue, 1, 0.5);\n\n        ctx.fillStyle(rgb.r, rgb.g, rgb.b);\n        ctx.fillCircle(x, y, radius);\n    }\n}"
+}

@@ -1,0 +1,4 @@
+{
+  "ScriptName": "Rotating Triangle Mosaic",
+  "JavaScriptCode": "// =========================\n// CONFIG\n// =========================\nconst TRI_SIZE = 30;\nconst ROT_SPEED = 0.5;\n\n// =========================\n// RENDER\nctx.clear(0, 0, 0);\n\nfor (let x = 0; x \u003C width; x \u002B= TRI_SIZE) {\n    for (let y = 0; y \u003C height; y \u002B= TRI_SIZE) {\n\n        let angle = time * ROT_SPEED \u002B (x \u002B y) * 0.01;\n        let hue = (Math.sin(angle) * 0.5 \u002B 0.5) % 1;\n        let rgb = ctx.hslToRgb(hue, 1, 0.5);\n\n        ctx.fillStyle(rgb.r, rgb.g, rgb.b);\n\n        ctx.save();\n        ctx.translate(x \u002B TRI_SIZE/2, y \u002B TRI_SIZE/2);\n        ctx.rotate(angle);\n        ctx.beginPath();\n        ctx.moveTo(0, -TRI_SIZE/2);\n        ctx.lineTo(TRI_SIZE/2, TRI_SIZE/2);\n        ctx.lineTo(-TRI_SIZE/2, TRI_SIZE/2);\n        ctx.closePath();\n        ctx.fill();\n        ctx.restore();\n    }\n}\n"
+}

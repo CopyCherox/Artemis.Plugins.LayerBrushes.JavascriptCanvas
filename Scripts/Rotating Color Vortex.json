@@ -1,0 +1,4 @@
+{
+  "ScriptName": "Rotating Color Vortex",
+  "JavaScriptCode": "// =========================\n// CONFIG\n// =========================\nconst STEP = 4;\nconst ROT_SPEED = 0.5;\nconst SCALE = 0.02;\n\n// =========================\n// RENDER\nctx.clear(0, 0, 0);\n\nlet cx = width / 2;\nlet cy = height / 2;\n\nfor (let x = 0; x \u003C width; x \u002B= STEP) {\n    for (let y = 0; y \u003C height; y \u002B= STEP) {\n\n        let dx = x - cx;\n        let dy = y - cy;\n        let angle = Math.atan2(dy, dx) \u002B time * ROT_SPEED;\n        let dist = Math.sqrt(dx*dx \u002B dy*dy);\n\n        let hue = ((Math.sin(dist * SCALE - angle) \u002B 1)/2) % 1;\n        let rgb = ctx.hslToRgb(hue, 1, 0.5);\n\n        ctx.fillStyle(rgb.r, rgb.g, rgb.b);\n        ctx.fillRect(x, y, STEP, STEP);\n    }\n}"
+}

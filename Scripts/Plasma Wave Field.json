@@ -1,0 +1,4 @@
+{
+  "ScriptName": "Plasma Wave Field",
+  "JavaScriptCode": "// =========================\r\n// CONFIG\r\n// =========================\r\nconst STEP = 6;\r\nconst SPEED = 1.2;\r\nconst SCALE_X = 0.05;\r\nconst SCALE_Y = 0.05;\r\nconst COLOR_SHIFT = 0.6;\r\n\r\n// =========================\r\n// RENDER\r\n// =========================\r\nctx.clear(0, 0, 0);\r\n\r\nfor (let x = 0; x \u003C width; x \u002B= STEP) {\r\n    for (let y = 0; y \u003C height; y \u002B= STEP) {\r\n\r\n        let v =\r\n            Math.sin(x * SCALE_X \u002B time * SPEED) \u002B\r\n            Math.sin(y * SCALE_Y \u002B time * SPEED) \u002B\r\n            Math.sin((x \u002B y) * 0.03 \u002B time * SPEED);\r\n\r\n        let h = (v * 0.15 \u002B COLOR_SHIFT) % 1;\r\n        let rgb = ctx.hslToRgb(h, 1, 0.5);\r\n\r\n        ctx.fillStyle(rgb.r, rgb.g, rgb.b);\r\n        ctx.fillRect(x, y, STEP, STEP);\r\n    }\r\n}"
+}

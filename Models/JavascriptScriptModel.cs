@@ -1,18 +1,14 @@
 ﻿using System.ComponentModel;
 using System.Runtime.CompilerServices;
-using System.Runtime.Serialization;
 
 namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
 {
-    [DataContract]
     public class JavascriptScriptModel : INotifyPropertyChanged
     {
-        private string _scriptName = "";
-        private string _javascriptCode = "";
-        private bool _isEnabled = false;
-        private bool _isGlobal = false;  // ✅ NEW
+        private string _scriptName = string.Empty;
+        private string _javaScriptCode = string.Empty;
+        private bool _isEnabled;
 
-        [DataMember]
         public string ScriptName
         {
             get => _scriptName;
@@ -26,21 +22,19 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
             }
         }
 
-        [DataMember]
         public string JavaScriptCode
         {
-            get => _javascriptCode;
+            get => _javaScriptCode;
             set
             {
-                if (_javascriptCode != value)
+                if (_javaScriptCode != value)
                 {
-                    _javascriptCode = value;
+                    _javaScriptCode = value;
                     OnPropertyChanged();
                 }
             }
         }
 
-        [DataMember]
         public bool IsEnabled
         {
             get => _isEnabled;
@@ -54,24 +48,9 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
             }
         }
 
-        // ✅ NEW: Global script flag
-        [DataMember]
-        public bool IsGlobal
-        {
-            get => _isGlobal;
-            set
-            {
-                if (_isGlobal != value)
-                {
-                    _isGlobal = value;
-                    OnPropertyChanged();
-                }
-            }
-        }
-
         public event PropertyChangedEventHandler? PropertyChanged;
 
-        protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+        protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }

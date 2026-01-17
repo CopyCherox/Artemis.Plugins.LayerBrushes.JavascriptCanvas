@@ -59,6 +59,27 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.Views
             });
             topPanel.Children.Add(titleBar);
 
+            // Add spacer to push unsaved indicator to the right
+            titleBar.Children.Add(new Border
+            {
+                Width = 1, // This will expand to fill space
+                HorizontalAlignment = HorizontalAlignment.Stretch
+            });
+
+            // Unsaved indicator in top right
+            var unsavedIndicator = new TextBlock
+            {
+                Text = "● Unsaved Changes",
+                Foreground = new SolidColorBrush(Color.Parse("#F39C12")),
+                FontWeight = FontWeight.Bold,
+                FontSize = 13,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0)
+            };
+            unsavedIndicator[!TextBlock.IsVisibleProperty] = new Avalonia.Data.Binding("HasUnsavedChanges");
+
+            titleBar.Children.Add(unsavedIndicator);
+
             // Script selector row
             var selectorPanel = new StackPanel
             {
@@ -137,16 +158,7 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.Views
                 [!TextBox.TextProperty] = new Avalonia.Data.Binding("SelectedScript.ScriptName")
             };
             namePanel.Children.Add(_scriptNameBox);
-
-            var globalCheckbox = new CheckBox
-            {
-                Content = "🌐 Global Script",
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(15, 0, 0, 0),
-                [!CheckBox.IsCheckedProperty] = new Avalonia.Data.Binding("SelectedScript.IsGlobal")
-            };
-            ToolTip.SetTip(globalCheckbox, "When checked, this script will appear in all new brush instances automatically");
-            namePanel.Children.Add(globalCheckbox);
+            
 
             topPanel.Children.Add(namePanel);
 
@@ -222,10 +234,10 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.Views
             });
 
             // Canvas size preset buttons
-            AddCanvasSizePreset(sizeControlPanel, "Ultrawide", 1200, 100);
-            AddCanvasSizePreset(sizeControlPanel, "Standard", 800, 150);
+            AddCanvasSizePreset(sizeControlPanel, "Ultrawide", 1200, 200);
+            AddCanvasSizePreset(sizeControlPanel, "Standard", 630, 250);
             AddCanvasSizePreset(sizeControlPanel, "Compact", 400, 100);
-            AddCanvasSizePreset(sizeControlPanel, "Tall", 600, 300);
+            AddCanvasSizePreset(sizeControlPanel, "Tall", 630, 400);
 
             // ✅ FRAME SKIP - "Skip every [number] frames" format
             sizeControlPanel.Children.Add(new TextBlock
@@ -414,22 +426,30 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.Views
                 Margin = new Thickness(0, 0, 0, 10)
             };
             DockPanel.SetDock(editorTitle, Dock.Top);
-            editorPanel.Children.Add(editorTitle);
+            editorPanel.Children.Add(editorTitle);            
 
             var applyBtn = new Button
             {
-                Content = "✅ Apply Changes to Layer Brush",
+                Content = "Apply Changes to Layer Brush",
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 FontWeight = FontWeight.Bold,
                 FontSize = 14,
                 Padding = new Thickness(20, 10),
                 Margin = new Thickness(0, 10, 0, 0),
                 Background = new SolidColorBrush(Color.Parse("#27AE60")),
-                Foreground = Brushes.White,
-                [!Button.CommandProperty] = new Avalonia.Data.Binding("ApplyScriptCommand")
+                Foreground = Brushes.White
             };
+
+            // Bind the button background to change color when there are unsaved changes
+            applyBtn[!Button.BackgroundProperty] = new Avalonia.Data.Binding("HasUnsavedChanges")
+            {
+                Converter = new UnsavedChangesColorConverter()
+            };
+            applyBtn[!Button.CommandProperty] = new Avalonia.Data.Binding("ApplyScriptCommand");
+
             DockPanel.SetDock(applyBtn, Dock.Bottom);
             editorPanel.Children.Add(applyBtn);
+
 
             _codeEditor = new AvaloniaEdit.TextEditor
             {
@@ -671,5 +691,25 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.Views
             }
         }
     }
+
+    public class UnsavedChangesColorConverter : Avalonia.Data.Converters.IValueConverter
+    {
+        public object? Convert(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture)
+        {
+            if (value is bool hasUnsaved && hasUnsaved)
+            {
+                // Orange/yellow for unsaved changes
+                return new SolidColorBrush(Color.Parse("#F39C12"));
+            }
+            // Green for saved
+            return new SolidColorBrush(Color.Parse("#27AE60"));
+        }
+
+        public object? ConvertBack(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
 
 }

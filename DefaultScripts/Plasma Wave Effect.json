@@ -1,0 +1,4 @@
+{
+  "ScriptName": "Plasma Wave Effect",
+  "JavaScriptCode": "// Optimized plasma waves - larger blocks, fewer calculations\nctx.clear(0, 0, 0);\n\n// Use larger step to reduce draw calls\nconst step = 8; // Changed from 4 to 8 (4x fewer draws!)\n\n// Pre-calculate time factors\nconst t1 = time * 2;\nconst t2 = time * 3;\nconst t3 = time;\n\nfor (let y = 0; y \u003C height; y \u002B= step) {\n  const yFactor = y * 0.01;\n  \n  for (let x = 0; x \u003C width; x \u002B= step) {\n    const xFactor = x * 0.01;\n    \n    // Combine calculations\n    let value = Math.sin(xFactor \u002B t1) \u002B \n                Math.sin(yFactor \u002B t2) \u002B \n                Math.sin((xFactor \u002B yFactor) \u002B t3);\n    \n    let r = 128 \u002B 127 * Math.sin(value);\n    let g = 128 \u002B 127 * Math.sin(value \u002B 2);\n    let b = 128 \u002B 127 * Math.sin(value \u002B 4);\n    \n    ctx.fillStyle(r, g, b, 255);\n    ctx.fillRect(x, y, step, step);\n  }\n}\n"
+}

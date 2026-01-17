@@ -9,7 +9,9 @@ using Avalonia.Threading;
 using ReactiveUI;
 using SkiaSharp;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
 using System.Reactive;
 using System.Reactive.Disposables;
@@ -24,13 +26,21 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.ViewModels
         private double time = 0;
         private SKBitmap? previewBitmap;
         private JavascriptScriptModel? selectedScript;
-        private int canvasWidth = 800;
-        private int canvasHeight = 150;
+        private int canvasWidth = 630;
+        private int canvasHeight = 250;
         private string errorMessage = string.Empty;
         private string currentEditorCode = string.Empty;
         private DispatcherTimer? updateTimer;
+        private readonly Dictionary<JavascriptScriptModel, string> _originalScriptNames = new Dictionary<JavascriptScriptModel, string>();
+
+        private bool hasUnsavedChanges = false;
+        private string savedEditorCode = string.Empty; 
+        private string savedScriptName = string.Empty;
+
+
 
         private int frameSkip = 2;
+        private bool _isRenamingLocally = false;
 
 
 
@@ -59,8 +69,30 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.ViewModels
             brush = layerBrush;
             jsExecutor = new JavaScriptExecutor();
 
-            // Use the SAME collection from Properties (don't create a copy)
+            var vmInstanceId = this.GetHashCode();
+            var propsInstanceId = brush.Properties.GetHashCode();
+
+            System.Diagnostics.Debug.WriteLine($"🎨 Creating ViewModel {vmInstanceId} for Properties {propsInstanceId}");
+
+            // ✅ SUBSCRIBE FIRST - before accessing Scripts property
+            brush.Properties.ScriptsRefreshed += OnScriptsRefreshedHandler;
+
+            System.Diagnostics.Debug.WriteLine($"✅ ViewModel subscribing to ScriptsRefreshed event");
+
+
+            var subscriberCount = brush.Properties.GetScriptsRefreshedSubscriberCount();
+            System.Diagnostics.Debug.WriteLine($"✅ ViewModel {vmInstanceId} subscribed to Properties {propsInstanceId} - now has {subscriberCount} subscriber(s)");
+
+            // NOW access Scripts (this will trigger Properties.Scripts getter)
             Scripts = brush.Properties.Scripts;
+
+            // Track original names of all scripts
+            foreach (var script in Scripts)
+            {
+                _originalScriptNames[script] = script.ScriptName;
+                script.PropertyChanged += Script_PropertyChanged;
+            }
+
             SelectedScript = Scripts.FirstOrDefault(s => s.IsEnabled) ?? Scripts.FirstOrDefault();
 
             // Initialize editor code
@@ -72,7 +104,7 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.ViewModels
             // Initialize frame skip from brush property
             frameSkip = brush.Properties.UpdateEveryNFrames?.CurrentValue ?? 2;
 
-            // ✅ Subscribe to CurrentValueSet event
+            // Subscribe to CurrentValueSet event
             if (brush.Properties.UpdateEveryNFrames != null)
             {
                 brush.Properties.UpdateEveryNFrames.CurrentValueSet += (sender, args) =>
@@ -86,20 +118,12 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.ViewModels
                 };
             }
 
-            // ✅ NEW: Watch for IsGlobal changes on ALL scripts
-            foreach (var script in Scripts)
-            {
-                script.PropertyChanged += Script_PropertyChanged;
-            }
-
             AddScriptCommand = ReactiveCommand.Create(AddScript);
             DeleteScriptCommand = ReactiveCommand.Create(DeleteScript, this.WhenAnyValue(x => x.SelectedScript).Select(s => s != null));
             ApplyScriptCommand = ReactiveCommand.Create(ApplyScript);
-
             ExportScriptCommand = ReactiveCommand.Create(ExportScript,
-    this.WhenAnyValue(x => x.SelectedScript).Select(s => s != null));
+                this.WhenAnyValue(x => x.SelectedScript).Select(s => s != null));
             ImportScriptCommand = ReactiveCommand.Create(ImportScript);
-
 
             // Watch for script selection changes
             this.WhenAnyValue(x => x.SelectedScript)
@@ -108,47 +132,192 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.ViewModels
                     if (script != null && script.JavaScriptCode != currentEditorCode)
                     {
                         currentEditorCode = script.JavaScriptCode;
+                        savedEditorCode = script.JavaScriptCode; // Store as saved version
+                        savedScriptName = script.ScriptName; // ADD THIS - Store saved name
                         this.RaisePropertyChanged(nameof(EditorCode));
-                        time = 0; // Reset animation
+                        time = 0;
                     }
+
+                    // Reset unsaved changes when switching scripts
+                    HasUnsavedChanges = false;
                 });
+
+
 
             // Start animation timer
             StartPreviewTimer();
+
+            System.Diagnostics.Debug.WriteLine($"✅ ViewModel initialized - has {Scripts.Count} scripts");
         }
+
+        // ✅ Extract the handler to a separate method
+        private void OnScriptsRefreshedHandler(object? sender, EventArgs e)
+        {
+            System.Diagnostics.Debug.WriteLine("📥 ViewModel received ScriptsRefreshed event, reloading...");
+
+            // Skip refresh if we're the one doing the rename
+            if (_isRenamingLocally)
+            {
+                System.Diagnostics.Debug.WriteLine("📥 Ignoring refresh - local rename in progress");
+                return;
+            }
+
+            // ✅ Remember the currently selected script NAME (not reference)
+            var previouslySelectedName = SelectedScript?.ScriptName;
+
+            // Unsubscribe from old scripts
+            foreach (var script in Scripts)
+            {
+                script.PropertyChanged -= Script_PropertyChanged;
+            }
+
+            // Reload the scripts reference
+            Scripts = brush.Properties.Scripts;
+            System.Diagnostics.Debug.WriteLine($"📥 Reloaded {Scripts.Count} scripts");
+
+            // Re-track all scripts
+            _originalScriptNames.Clear();
+            foreach (var script in Scripts)
+            {
+                _originalScriptNames[script] = script.ScriptName;
+                script.PropertyChanged += Script_PropertyChanged;
+            }
+
+            // ✅ Re-select by NAME, not by reference
+            if (!string.IsNullOrEmpty(previouslySelectedName))
+            {
+                SelectedScript = Scripts.FirstOrDefault(s => s.ScriptName == previouslySelectedName)
+                                ?? Scripts.FirstOrDefault(s => s.IsEnabled)
+                                ?? Scripts.FirstOrDefault();
+            }
+            else
+            {
+                SelectedScript = Scripts.FirstOrDefault(s => s.IsEnabled) ?? Scripts.FirstOrDefault();
+            }
+
+            System.Diagnostics.Debug.WriteLine($"📥 Selected script: {SelectedScript?.ScriptName ?? "none"}");
+            this.RaisePropertyChanged(nameof(Scripts));
+            this.RaisePropertyChanged(nameof(SelectedScript));
+        }
+
+
 
         // ✅ NEW: Handle property changes on scripts (especially IsGlobal)
-        private void Script_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
-        {
-            if (e.PropertyName == nameof(JavascriptScriptModel.IsGlobal))
-            {
-                var script = sender as JavascriptScriptModel;
-                if (script != null)
-                {
-                    // Save immediately when IsGlobal changes
-                    brush.Properties.SaveScripts();
+        private System.Timers.Timer? _renameTimer;
+        private JavascriptScriptModel? _scriptBeingRenamed;
 
-                    if (script.IsGlobal)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"✅ Script '{script.ScriptName}' marked as GLOBAL and saved immediately");
-                    }
-                    else
-                    {
-                        System.Diagnostics.Debug.WriteLine($"ℹ️ Script '{script.ScriptName}' unmarked as global and saved immediately");
-                    }
-                }
-            }
-            else if (e.PropertyName == nameof(JavascriptScriptModel.ScriptName))
+        private void Script_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (sender is not JavascriptScriptModel script) return;
+
+            if (e.PropertyName == nameof(JavascriptScriptModel.ScriptName))
             {
-                // Also save when script name changes (for global scripts)
-                var script = sender as JavascriptScriptModel;
-                if (script != null && script.IsGlobal)
+                // Check if this is the currently selected script
+                if (script == SelectedScript)
                 {
-                    brush.Properties.SaveScripts();
-                    System.Diagnostics.Debug.WriteLine($"✅ Global script renamed to '{script.ScriptName}' and saved");
+                    // Mark as unsaved if name changed
+                    HasUnsavedChanges = (script.ScriptName != savedScriptName);
                 }
+
+                // ✅ Debounce: Wait for user to stop typing before processing
+                _renameTimer?.Stop();
+                _scriptBeingRenamed = script;
+                _renameTimer = new System.Timers.Timer(1000); // 1 second delay
+                _renameTimer.Elapsed += (s, args) =>
+                {
+                    _renameTimer.Stop();
+                    // Process the rename on UI thread
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                    {
+                        FinalizeScriptRename(_scriptBeingRenamed);
+                    });
+                };
+                _renameTimer.Start();
+                return;
             }
+
+            System.Diagnostics.Debug.WriteLine($"🔔 Script property changed: {e.PropertyName} on '{script.ScriptName}'");
         }
+
+
+        private bool isRenamingLocally = false;
+
+        private void FinalizeScriptRename(JavascriptScriptModel? script)
+        {
+            if (script == null || !_originalScriptNames.TryGetValue(script, out var originalName))
+                return;
+
+            if (originalName == script.ScriptName)
+                return;
+
+            // Validate
+            if (string.IsNullOrWhiteSpace(script.ScriptName))
+            {
+                script.ScriptName = originalName;
+                return;
+            }
+
+            if (Scripts.Any(s => s != script && s.ScriptName == script.ScriptName))
+            {
+                script.ScriptName = originalName;
+                System.Diagnostics.Debug.WriteLine($"⚠️ Duplicate name, reverted to '{originalName}'");
+                return;
+            }
+
+            // Store the new name before renaming
+            var newScriptName = script.ScriptName;
+            var wasSelected = (script == SelectedScript);
+
+            // Rename the file
+            System.Diagnostics.Debug.WriteLine($"✏️ Renaming '{originalName}' → '{newScriptName}'");
+
+            ScriptsFolderManager.RenameScriptFile(originalName, newScriptName);
+            _originalScriptNames[script] = newScriptName;
+
+            // Force refresh to get new object references after rename
+            // Use Dispatcher to ensure file system has processed the rename
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                // Reload scripts from Properties (which loads from disk)
+                var previouslySelectedName = SelectedScript?.ScriptName;
+
+                // Unsubscribe from old scripts
+                foreach (var s in Scripts)
+                {
+                    s.PropertyChanged -= Script_PropertyChanged;
+                }
+
+                // Reload
+                Scripts = brush.Properties.Scripts;
+
+                // Re-track all scripts
+                _originalScriptNames.Clear();
+                foreach (var s in Scripts)
+                {
+                    _originalScriptNames[s] = s.ScriptName;
+                    s.PropertyChanged += Script_PropertyChanged;
+                }
+
+                // Re-select the renamed script by name
+                if (wasSelected && !string.IsNullOrEmpty(newScriptName))
+                {
+                    SelectedScript = Scripts.FirstOrDefault(s => s.ScriptName == newScriptName);
+                    savedScriptName = newScriptName;
+                }
+
+                // Update saved name and clear unsaved flag
+                HasUnsavedChanges = false;
+
+                this.RaisePropertyChanged(nameof(Scripts));
+                this.RaisePropertyChanged(nameof(SelectedScript));
+
+                System.Diagnostics.Debug.WriteLine($"✅ Refreshed after rename, selected: {SelectedScript?.ScriptName ?? "none"}");
+
+            }, Avalonia.Threading.DispatcherPriority.Background);
+        }
+
+
+
 
 
         private void StartPreviewTimer()
@@ -167,7 +336,8 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.ViewModels
             updateTimer.Start();
         }
 
-        public ObservableCollection<JavascriptScriptModel> Scripts { get; }
+        public ObservableCollection<JavascriptScriptModel> Scripts { get; private set; }
+
 
         public JavascriptScriptModel? SelectedScript
         {
@@ -190,7 +360,48 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.ViewModels
                     {
                         SelectedScript.JavaScriptCode = value;
                     }
+
+                    // Check if different from saved version
+                    HasUnsavedChanges = (currentEditorCode != savedEditorCode);
                 }
+            }
+        }
+
+
+        public bool HasUnsavedChanges
+        {
+            get => hasUnsavedChanges;
+            private set => this.RaiseAndSetIfChanged(ref hasUnsavedChanges, value);
+        }
+
+
+        private void CheckForUnsavedChanges()
+        {
+            if (SelectedScript == null)
+            {
+                HasUnsavedChanges = false;
+                return;
+            }
+
+            // Compare current editor code with what's saved in the file
+            // We need to get the saved version from disk
+            try
+            {
+                var scripts = ScriptsFolderManager.LoadAllScripts();
+                var savedScript = scripts.FirstOrDefault(s => s.ScriptName == SelectedScript.ScriptName);
+
+                if (savedScript != null)
+                {
+                    HasUnsavedChanges = currentEditorCode != savedScript.JavaScriptCode;
+                }
+                else
+                {
+                    HasUnsavedChanges = true; // New script not yet saved
+                }
+            }
+            catch
+            {
+                HasUnsavedChanges = false;
             }
         }
 
@@ -240,29 +451,52 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.ViewModels
 
         private void AddScript()
         {
+            var newScriptName = $"Custom Script {Scripts.Count + 1}";
+
             var newScript = new JavascriptScriptModel
             {
-                ScriptName = $"Custom Script {Scripts.Count + 1}",
+                ScriptName = newScriptName,
                 JavaScriptCode = "// New script\nctx.clear(0, 255, 0);",
-                IsEnabled = false,
-                IsGlobal = false
+                IsEnabled = false
             };
 
-            // Subscribe to property changes for the new script
-            newScript.PropertyChanged += ScriptPropertyChanged;
-
+            newScript.PropertyChanged += Script_PropertyChanged;
             Scripts.Add(newScript);
-            SelectedScript = newScript;
 
-            // IMPORTANT: Save immediately after adding
-            brush.Properties.SaveScripts();
+            // Track original name
+            _originalScriptNames[newScript] = newScript.ScriptName;
+
+            // Save to file
+            ScriptsFolderManager.SaveScriptToFile(newScript.ScriptName, newScript.JavaScriptCode);
+
+            // Manually notify all instances
+            System.Diagnostics.Debug.WriteLine($"➕ Added new script, manually notifying...");
+            ScriptsFolderManager.NotifyScriptsChanged();
+
+            // ✅ Find and select the new script by name (after potential refresh)
+            // Use Dispatcher to ensure this happens after the refresh completes
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                var scriptToSelect = Scripts.FirstOrDefault(s => s.ScriptName == newScriptName);
+                if (scriptToSelect != null)
+                {
+                    SelectedScript = scriptToSelect;
+                    this.RaisePropertyChanged(nameof(SelectedScript));
+                    System.Diagnostics.Debug.WriteLine($"✅ Selected new script '{scriptToSelect.ScriptName}'");
+                }
+            }, Avalonia.Threading.DispatcherPriority.Loaded);
         }
+
+
 
 
 
         private async void DeleteScript()
         {
             if (SelectedScript == null) return;
+
+            // Store reference to avoid null warnings
+            var scriptToDelete = SelectedScript;
 
             // Show confirmation dialog
             var dialog = new Avalonia.Controls.Window
@@ -283,7 +517,7 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.ViewModels
 
             panel.Children.Add(new TextBlock
             {
-                Text = $"Are you sure you want to delete '{SelectedScript.ScriptName}'?",
+                Text = $"Are you sure you want to delete '{scriptToDelete.ScriptName}'?",
                 FontSize = 14,
                 TextWrapping = TextWrapping.Wrap,
                 Foreground = Brushes.White
@@ -327,71 +561,78 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.ViewModels
             buttonPanel.Children.Add(noButton);
             buttonPanel.Children.Add(yesButton);
             panel.Children.Add(buttonPanel);
-
             dialog.Content = panel;
 
             var mainWindow = Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
-    ? desktop.MainWindow
-    : null;
+                ? desktop.MainWindow
+                : null;
 
-            if (mainWindow == null) return;  // ✅ Early return if no window
+            if (mainWindow == null) return;
 
             // Show dialog and wait for result
             var result = await dialog.ShowDialog<bool?>(mainWindow);
 
-
             // Only delete if user confirmed
             if (result == true)
             {
-                var index = Scripts.IndexOf(SelectedScript);
-                Scripts.Remove(SelectedScript);
-                if (Scripts.Count > 0)
-                    SelectedScript = Scripts[Math.Max(0, index - 1)];
+                var index = Scripts.IndexOf(scriptToDelete);
 
-                // Save to LayerProperty
-                brush.Properties.SaveScripts();
+                // Remove from tracking dictionary
+                _originalScriptNames.Remove(scriptToDelete);
+
+                // Remove from collection
+                Scripts.Remove(scriptToDelete);
+
+                // Delete the file
+                ScriptsFolderManager.DeleteScriptFile(scriptToDelete.ScriptName);
+
+                // ✅ Select the next available script
+                if (Scripts.Count > 0)
+                {
+                    // Try to select the script at the same index, or the previous one
+                    var newIndex = Math.Min(index, Scripts.Count - 1);
+                    SelectedScript = Scripts[newIndex];
+                    this.RaisePropertyChanged(nameof(SelectedScript));
+                    System.Diagnostics.Debug.WriteLine($"✅ Selected script '{SelectedScript.ScriptName}' after deletion");
+                }
+                else
+                {
+                    SelectedScript = null;
+                    this.RaisePropertyChanged(nameof(SelectedScript));
+                    System.Diagnostics.Debug.WriteLine($"⚠️ No scripts remaining");
+                }
+
+                System.Diagnostics.Debug.WriteLine($"🗑️ Deleted script '{scriptToDelete.ScriptName}' from collection and file");
             }
         }
 
 
         private void ApplyScript()
         {
-            if (SelectedScript != null)
+            if (SelectedScript == null) return;
+
+            // Update the script's code from editor
+            SelectedScript.JavaScriptCode = currentEditorCode;
+
+            // Save the code change
+            ScriptsFolderManager.SaveScriptToFile(SelectedScript.ScriptName, SelectedScript.JavaScriptCode);
+
+            // Enable this script, disable others
+            foreach (var script in Scripts)
             {
-                // Save current editor code to the script
-                SelectedScript.JavaScriptCode = currentEditorCode;
-
-                // Disable ALL scripts first
-                foreach (var script in Scripts)
-                {
-                    script.IsEnabled = false;
-                }
-
-                // Enable ONLY the selected script
-                SelectedScript.IsEnabled = true;
-
-                // Apply to the actual layer brush
-                brush.UpdateScript(SelectedScript);
-
-                // Reset animation
-                time = 0;
-
-                // Force immediate preview update
-                UpdatePreview();
-
-                // Save to LayerProperty AND global scripts
-                brush.Properties.SaveScripts();
-
-                // ✅ Force properties to refresh from global storage
-                brush.Properties.RefreshScripts();
-
-                // ✅ Show confirmation if marked as global
-                if (SelectedScript.IsGlobal)
-                {
-                    System.Diagnostics.Debug.WriteLine($"✅ Script '{SelectedScript.ScriptName}' saved as GLOBAL - will appear in new brushes");
-                }
+                script.IsEnabled = (script == SelectedScript);
             }
+
+            // ✅ Save the enabled state
+            brush.Properties.SaveScripts();
+
+            // Update saved version and clear unsaved flag
+            savedEditorCode = currentEditorCode;
+            HasUnsavedChanges = false;
+
+            System.Diagnostics.Debug.WriteLine($"✅ Script '{SelectedScript.ScriptName}' applied and saved");
         }
+
 
 
 
@@ -458,6 +699,9 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.ViewModels
         {
             if (SelectedScript == null) return;
 
+            // Store reference to avoid null warnings
+            var scriptToExport = SelectedScript;
+
             try
             {
                 var mainWindow = Avalonia.Application.Current?.ApplicationLifetime is
@@ -467,11 +711,10 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.ViewModels
                 if (mainWindow == null) return;
 
                 var storageProvider = mainWindow.StorageProvider;
-
                 var file = await storageProvider.SaveFilePickerAsync(new Avalonia.Platform.Storage.FilePickerSaveOptions
                 {
                     Title = "Export Script",
-                    SuggestedFileName = $"{SelectedScript.ScriptName}.json",
+                    SuggestedFileName = $"{scriptToExport.ScriptName}.json",  // Use scriptToExport
                     DefaultExtension = "json",
                     FileTypeChoices = new[]
                     {
@@ -489,16 +732,13 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.ViewModels
                 if (file != null)
                 {
                     // Save current editor code to script before export
-                    if (SelectedScript != null)
-                    {
-                        SelectedScript.JavaScriptCode = currentEditorCode;
-                    }
+                    scriptToExport.JavaScriptCode = currentEditorCode;  // Use scriptToExport
 
                     // Create anonymous object with only the fields we want to export
                     var exportData = new
                     {
-                        ScriptName = SelectedScript.ScriptName,
-                        JavaScriptCode = SelectedScript.JavaScriptCode
+                        ScriptName = scriptToExport.ScriptName,  // Use scriptToExport
+                        JavaScriptCode = scriptToExport.JavaScriptCode  // Use scriptToExport
                     };
 
                     var json = System.Text.Json.JsonSerializer.Serialize(exportData,
@@ -517,6 +757,7 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.ViewModels
                 System.Diagnostics.Debug.WriteLine($"Export error: {ex}");
             }
         }
+
 
 
 
@@ -552,7 +793,6 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.ViewModels
                 if (files.Count > 0)
                 {
                     int successCount = 0;
-                    int skipCount = 0;
                     int errorCount = 0;
                     JavascriptScriptModel? lastImportedScript = null;
 
@@ -583,8 +823,7 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.ViewModels
                             {
                                 ScriptName = scriptName,
                                 JavaScriptCode = scriptCode,
-                                IsEnabled = false,
-                                IsGlobal = false
+                                IsEnabled = false
                             };
 
                             var existingScript = Scripts.FirstOrDefault(s =>
@@ -605,10 +844,13 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.ViewModels
                                 System.Diagnostics.Debug.WriteLine($"Script '{scriptName}' renamed to '{newName}' due to conflict");
                             }
 
-                            importedScript.PropertyChanged += ScriptPropertyChanged;
+                            // After successfully adding an imported script:
+                            importedScript.PropertyChanged += Script_PropertyChanged;
                             Scripts.Add(importedScript);
+                            _originalScriptNames[importedScript] = importedScript.ScriptName; // Add this line
                             lastImportedScript = importedScript;
                             successCount++;
+
 
                             System.Diagnostics.Debug.WriteLine($"Script imported from: {file.Name}");
                         }
@@ -704,42 +946,16 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.ViewModels
 
         private void ScriptPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
-            if (e.PropertyName == nameof(JavascriptScriptModel.IsGlobal))
+            var script = sender as JavascriptScriptModel;
+            if (script == null) return;
+
+            if (e.PropertyName == nameof(JavascriptScriptModel.ScriptName))
             {
-                var script = sender as JavascriptScriptModel;
-                if (script != null)
-                {
-                    brush.Properties.SaveScripts();
-                    if (script.IsGlobal)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"Script {script.ScriptName} marked as GLOBAL and saved immediately");
-                    }
-                    else
-                    {
-                        System.Diagnostics.Debug.WriteLine($"Script {script.ScriptName} unmarked as global and saved immediately");
-                    }
-                }
+                // Save whenever script name changes
+                brush.Properties.SaveScripts();
+                System.Diagnostics.Debug.WriteLine($"Script renamed to {script.ScriptName} and saved");
             }
-            else if (e.PropertyName == nameof(JavascriptScriptModel.ScriptName))
-            {
-                var script = sender as JavascriptScriptModel;
-                if (script != null)
-                {
-                    // Save whenever script name changes
-                    brush.Properties.SaveScripts();
-                    System.Diagnostics.Debug.WriteLine($"Script renamed to {script.ScriptName} and saved");
-                }
-            }
-            else if (e.PropertyName == nameof(JavascriptScriptModel.JavaScriptCode))
-            {
-                // Optional: Save when code changes (might be too frequent)
-                // Uncomment if you want auto-save on code edits
-                // var script = sender as JavascriptScriptModel;
-                // if (script != null)
-                // {
-                //     brush.Properties.SaveScripts();
-                // }
-            }
+            // Note: Don't save on JavaScriptCode changes to avoid saving on every keystroke
         }
 
 
@@ -747,6 +963,14 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.ViewModels
 
         public new void Dispose()
         {
+            System.Diagnostics.Debug.WriteLine($"🗑️ Disposing ViewModel {this.GetHashCode()} for Properties {brush.Properties.GetHashCode()}");
+
+            // Unsubscribe from events
+            brush.Properties.ScriptsRefreshed -= OnScriptsRefreshedHandler;
+
+            var remainingSubscribers = brush.Properties.GetScriptsRefreshedSubscriberCount();
+            System.Diagnostics.Debug.WriteLine($"🗑️ After unsubscribe - {remainingSubscribers} subscriber(s) remaining");
+
             // Save scripts before disposing
             brush.Properties.SaveScripts();
 
@@ -759,17 +983,16 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.ViewModels
             // Unsubscribe from all script property changes
             foreach (var script in Scripts)
             {
-                script.PropertyChanged -= ScriptPropertyChanged;
+                script.PropertyChanged -= Script_PropertyChanged;
             }
 
             base.Dispose();
         }
 
-
-
         ~JavascriptCanvasBrushConfigurationViewModel()
         {
             Dispose();
         }
+
     }
 }

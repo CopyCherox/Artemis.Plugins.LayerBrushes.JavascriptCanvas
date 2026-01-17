@@ -1,0 +1,4 @@
+{
+  "ScriptName": "Radial Color Burst",
+  "JavaScriptCode": "// =========================\n// CONFIG\n// =========================\nconst PULSE_SPEED = 1.5;\nconst COLOR_BANDS = 8;\nconst SATURATION = 1.0;\nconst BRIGHTNESS = 0.6;\n\n// =========================\n// RENDER\nctx.clear(255, 240, 250);\n\nconst cx = width / 2;\nconst cy = height / 2;\nconst pulse = Math.sin(time * PULSE_SPEED) * 0.3 \u002B 1;\nconst maxRadius = Math.sqrt(width * width \u002B height * height) / 2 * pulse;\n\nconst grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxRadius);\n\nfor (let i = 0; i \u003C= COLOR_BANDS; i\u002B\u002B) {\n    let hue = (i / COLOR_BANDS \u002B time * 0.15) % 1;\n    let rgb = ctx.hslToRgb(hue, SATURATION, BRIGHTNESS);\n    grad.addColorStop(i / COLOR_BANDS, rgb.r, rgb.g, rgb.b, 255);\n}\n\nctx.fillStyleGradient(grad);\nctx.fillRect(0, 0, width, height);\n"
+}

@@ -1,0 +1,4 @@
+{
+  "ScriptName": "Flowing Liquid Noise",
+  "JavaScriptCode": "// Organic flowing texture across entire canvas\nconst STEP = 3;\nctx.clear(0, 0, 0);\n\nfor (let x = 0; x \u003C width; x \u002B= STEP) {\n    for (let y = 0; y \u003C height; y \u002B= STEP) {\n        // Multi-layered noise pattern\n        let noise = Math.sin(x * 0.01 \u002B time) * \n                    Math.cos(y * 0.01 \u002B time * 0.7) \u002B\n                    Math.sin((x \u002B y) * 0.005 - time * 2) * 0.5;\n        \n        // Map noise to hue and brightness\n        let hue = (noise \u002B 2) * 0.16; // 0-1 range\n        let brightness = 0.3 \u002B (noise \u002B 2) * 0.1;\n        \n        let rgb = ctx.hslToRgb(hue, 0.8, brightness);\n        ctx.fillStyle(rgb.r, rgb.g, rgb.b, 255);\n        ctx.fillRect(x, y, STEP, STEP);\n    }\n}\n"
+}

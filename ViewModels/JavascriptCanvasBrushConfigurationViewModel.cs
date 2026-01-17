@@ -495,7 +495,6 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.ViewModels
         {
             if (SelectedScript == null) return;
 
-            // Store reference to avoid null warnings
             var scriptToDelete = SelectedScript;
 
             // Show confirmation dialog
@@ -503,73 +502,80 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.ViewModels
             {
                 Title = "Confirm Delete",
                 Width = 400,
-                Height = 180,
+                Height = 160,
                 WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterOwner,
                 CanResize = false,
                 Background = new SolidColorBrush(Color.Parse("#2D2D2D"))
             };
 
-            var panel = new StackPanel
+            var mainPanel = new StackPanel
             {
-                Margin = new Thickness(20),
-                Spacing = 20
+                Margin = new Thickness(30, 20, 30, 20),
+                Spacing = 25,
+                HorizontalAlignment = HorizontalAlignment.Stretch
             };
 
-            panel.Children.Add(new TextBlock
+            // Message text - centered
+            mainPanel.Children.Add(new TextBlock
             {
                 Text = $"Are you sure you want to delete '{scriptToDelete.ScriptName}'?",
                 FontSize = 14,
                 TextWrapping = TextWrapping.Wrap,
-                Foreground = Brushes.White
+                Foreground = Brushes.White,
+                TextAlignment = Avalonia.Media.TextAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Center
             });
 
-            var buttonPanel = new StackPanel
+            // Button container using Grid for perfect centering
+            var buttonGrid = new Grid
             {
-                Orientation = Orientation.Horizontal,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                Spacing = 10
+                ColumnDefinitions = new ColumnDefinitions("*,Auto,15,Auto,*"),
+                HorizontalAlignment = HorizontalAlignment.Stretch
             };
 
-            var yesButton = new Button
-            {
-                Content = "Yes, Delete",
-                Width = 120,
-                Padding = new Thickness(10, 5),
-                Background = new SolidColorBrush(Color.Parse("#E74C3C")),
-                Foreground = Brushes.White
-            };
-
-            var noButton = new Button
+            var cancelButton = new Button
             {
                 Content = "Cancel",
                 Width = 120,
+                Height = 32,
                 Padding = new Thickness(10, 5),
                 Background = new SolidColorBrush(Color.Parse("#95A5A6")),
-                Foreground = Brushes.White
+                Foreground = Brushes.White,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
             };
 
-            yesButton.Click += (s, e) =>
+            var deleteButton = new Button
             {
-                dialog.Close(true);
+                Content = "Yes, Delete",
+                Width = 120,
+                Height = 32,
+                Padding = new Thickness(10, 5),
+                Background = new SolidColorBrush(Color.Parse("#E74C3C")),
+                Foreground = Brushes.White,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
             };
 
-            noButton.Click += (s, e) =>
-            {
-                dialog.Close(false);
-            };
+            cancelButton.Click += (s, e) => dialog.Close(false);
+            deleteButton.Click += (s, e) => dialog.Close(true);
 
-            buttonPanel.Children.Add(noButton);
-            buttonPanel.Children.Add(yesButton);
-            panel.Children.Add(buttonPanel);
-            dialog.Content = panel;
+            Grid.SetColumn(cancelButton, 1);
+            Grid.SetColumn(deleteButton, 3);
 
-            var mainWindow = Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
-                ? desktop.MainWindow
-                : null;
+            buttonGrid.Children.Add(cancelButton);
+            buttonGrid.Children.Add(deleteButton);
+
+            mainPanel.Children.Add(buttonGrid);
+
+            dialog.Content = mainPanel;
+
+            var mainWindow = Avalonia.Application.Current?.ApplicationLifetime is
+                Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+                ? desktop.MainWindow : null;
 
             if (mainWindow == null) return;
 
-            // Show dialog and wait for result
             var result = await dialog.ShowDialog<bool?>(mainWindow);
 
             // Only delete if user confirmed

@@ -1,11 +1,11 @@
 ﻿using Artemis.Core;
 using Artemis.Core.LayerBrushes;
-using Artemis.Plugins.LayerBrushes.JavascriptCanvas.ViewModels;
 using Artemis.Plugins.LayerBrushes.JavascriptCanvas;
 using Artemis.UI.Shared.LayerBrushes;
 using SkiaSharp;
 using System;
 using System.Linq;
+using Artemis.Plugins.LayerBrushes.JavascriptCanvas.ViewModels;
 
 namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
 {
@@ -28,12 +28,15 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
         private float _cachedLayerHeight = 0;
         private int _cachedLedCount = 0;
 
+        private Services.AudioReactivityService? _audioService;
+
         public override void EnableLayerBrush()
         {
             ConfigurationDialog = new LayerBrushConfigurationDialog<JavascriptCanvasBrushConfigurationViewModel>(1300, 800);
             try
             {
                 _jsExecutor = new JavaScriptExecutor();
+                _audioService = new Services.AudioReactivityService();
             }
             catch (Exception ex)
             {
@@ -51,6 +54,8 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
                     _canvasBitmap = null;
                     _jsExecutor?.Dispose();
                     _jsExecutor = null;
+                    _audioService?.Dispose(); 
+                    _audioService = null;     
                 }
                 catch (Exception ex)
                 {
@@ -63,6 +68,14 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
         {
             _time += deltaTime;
             _frameCounter++;
+
+            if (_frameCounter == 1)
+            {
+                System.Diagnostics.Debug.WriteLine($"🎮 First Update, audioService is null: {_audioService == null}");
+            }
+
+            // Start audio
+            _audioService?.Start();
 
             int updateInterval = Properties?.UpdateEveryNFrames?.CurrentValue ?? 2;
             if (_frameCounter % updateInterval != 0)
@@ -113,7 +126,11 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
                         currentScript.JavaScriptCode,
                         canvasWidth,
                         canvasHeight,
-                        _time
+                        _time,
+                        _audioService,
+                        null,
+                        null,
+                        null
                     );
                     oldBitmap?.Dispose();
                     _lastError = null;
@@ -236,7 +253,11 @@ for (let x = 0; x < width; x++) {
 }",
                         800,
                         100,
-                        _time
+                        _time,
+                        null,   // No audio service in fallback
+                        null,   // No time scale callback
+                        null,   // No pause callback
+                        null    // No get time callback                  
                     );
                     oldBitmap?.Dispose();
                 }

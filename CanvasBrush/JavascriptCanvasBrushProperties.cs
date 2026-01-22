@@ -14,6 +14,10 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
         [PropertyDescription(Description = "Update canvas every N frames (higher = better performance, lower = smoother)", InputAffix = "frames")]
         public IntLayerProperty UpdateEveryNFrames { get; set; } = null!;
 
+        [PropertyDescription(Name = "Enable Audio Reactivity")]
+        public BoolLayerProperty? EnableAudio { get; set; }
+
+
         private ObservableCollection<JavascriptScriptModel>? _scriptsCache;
 
         public LayerProperty<string> EnabledScriptName { get; set; } = null!;

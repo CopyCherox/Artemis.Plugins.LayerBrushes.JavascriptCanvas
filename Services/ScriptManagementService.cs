@@ -27,7 +27,10 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.Services
 
             _scripts.Add(newScript);
             ScriptsFolderManager.SaveScriptToFile(newScript.ScriptName, newScript.JavaScriptCode);
-            ScriptsFolderManager.NotifyScriptsChanged();
+
+            // FIX: DON'T call NotifyScriptsChanged() here!
+            // It causes a reload from disk which invalidates the object reference
+            // ScriptsFolderManager.NotifyScriptsChanged();
 
             return newScript;
         }
@@ -38,6 +41,7 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.Services
             ScriptsFolderManager.DeleteScriptFile(script.ScriptName);
         }
 
+        // ... rest of the class remains the same
         public async Task<bool> ExportScript(JavascriptScriptModel script, Window mainWindow)
         {
             try
@@ -72,13 +76,15 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.Services
                     await using var stream = await file.OpenWriteAsync();
                     await using var writer = new System.IO.StreamWriter(stream);
                     await writer.WriteAsync(json);
+
                     return true;
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                System.Diagnostics.Debug.WriteLine($"Export error: {ex}");
+                // Silently handle errors
             }
+
             return false;
         }
 
@@ -97,10 +103,10 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.Services
                         AllowMultiple = true,
                         FileTypeFilter = new[]
                         {
-                    new Avalonia.Platform.Storage.FilePickerFileType("JSON Files")
-                    {
-                        Patterns = new[] { "*.json" }
-                    }
+                            new Avalonia.Platform.Storage.FilePickerFileType("JSON Files")
+                            {
+                                Patterns = new[] { "*.json" }
+                            }
                         }
                     });
 
@@ -111,9 +117,9 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.Services
                         await using var stream = await file.OpenReadAsync();
                         using var reader = new System.IO.StreamReader(stream);
                         var json = await reader.ReadToEndAsync();
-
                         using var jsonDoc = System.Text.Json.JsonDocument.Parse(json);
                         var root = jsonDoc.RootElement;
+
                         var scriptName = root.GetProperty("ScriptName").GetString();
                         var scriptCode = root.GetProperty("JavaScriptCode").GetString();
 
@@ -131,10 +137,7 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.Services
                         };
 
                         _scripts.Add(importedScript);
-
-                        // Save to file
                         ScriptsFolderManager.SaveScriptToFile(importedScript.ScriptName, importedScript.JavaScriptCode);
-
                         successCount++;
                     }
                     catch
@@ -143,14 +146,13 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.Services
                     }
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                System.Diagnostics.Debug.WriteLine($"Import error: {ex}");
+                // Silently handle errors
             }
 
             return (successCount, errorCount);
         }
-
 
         private string EnsureUniqueScriptName(string baseName)
         {
@@ -159,11 +161,13 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.Services
 
             int counter = 1;
             string newName = $"{baseName} ({counter})";
+
             while (_scripts.Any(s => s.ScriptName == newName))
             {
                 counter++;
                 newName = $"{baseName} ({counter})";
             }
+
             return newName;
         }
     }

@@ -21,7 +21,6 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.Views.Controls
             VerticalAlignment = VerticalAlignment.Stretch;
             LastChildFill = true;
 
-            // Title
             var previewTitle = new TextBlock
             {
                 Text = "Live Canvas Preview",
@@ -32,7 +31,6 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.Views.Controls
             DockPanel.SetDock(previewTitle, Dock.Top);
             Children.Add(previewTitle);
 
-            // Preview image in scroll viewer
             _previewImage = new Image
             {
                 Stretch = Stretch.None,
@@ -60,11 +58,9 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.Views.Controls
             DockPanel.SetDock(previewBorder, Dock.Top);
             Children.Add(previewBorder);
 
-            // API reference box
             var helpBox = new ApiReferenceControl();
             Children.Add(helpBox);
 
-            // Setup data context change handler
             DataContextChanged += (s, e) =>
             {
                 if (DataContext is ViewModels.JavascriptCanvasBrushConfigurationViewModel vm)
@@ -83,10 +79,7 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.Views.Controls
             {
                 IntPtr pixelsPtr = skBitmap.GetPixels();
                 if (pixelsPtr == IntPtr.Zero)
-                {
-                    System.Diagnostics.Debug.WriteLine("Failed to get pixels from SKBitmap");
                     return;
-                }
 
                 int byteCount = skBitmap.Width * skBitmap.Height * 4;
                 byte[] pixelBytes = new byte[byteCount];
@@ -108,9 +101,9 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.Views.Controls
                 _previewImage.Height = skBitmap.Height;
                 _previewImage.Source = avaBitmap;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                System.Diagnostics.Debug.WriteLine($"Preview update error: {ex.Message}");
+                // Silently handle preview errors
             }
         }
     }

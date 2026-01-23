@@ -7,7 +7,7 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.Services
     public class PreviewRenderingService : IDisposable
     {
         private readonly JavaScriptExecutor _jsExecutor;
-        private readonly AudioReactivityService? audioService;
+        private AudioReactivityService? audioService;
         private DispatcherTimer? _updateTimer;
         private double _time = 0;
         private double _timeScale = 1.0;
@@ -16,11 +16,11 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.Services
         private string _currentScript = string.Empty;
         private int _width = 630;
         private int _height = 250;
+        private bool _audioEnabled = true;
 
         public event EventHandler<SKBitmap?>? PreviewUpdated;
         public event EventHandler<string>? ErrorOccurred;
 
-        // NEW: Events for time control changes
         public event EventHandler<double>? TimeScaleChanged;
         public event EventHandler<bool>? PausedChanged;
         public event EventHandler<double>? TimeChanged;
@@ -32,8 +32,16 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.Services
         public PreviewRenderingService()
         {
             _jsExecutor = new JavaScriptExecutor();
+
+            // Create and start audio service immediately
             audioService = new AudioReactivityService();
-            audioService?.Start();
+            audioService?.Start(); // Always keep it running for preview
+        }
+
+        public void SetAudioEnabled(bool enabled)
+        {
+            _audioEnabled = enabled;
+            System.Diagnostics.Debug.WriteLine($"Preview audio set to: {enabled}");
         }
 
         public void SetTimeScale(double scale)
@@ -63,19 +71,15 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.Services
             };
             _updateTimer.Tick += (s, e) =>
             {
-                // Update time only if not paused
                 if (!_isPaused)
                 {
                     _time += (intervalMs / 1000.0) * _timeScale;
                     TimeChanged?.Invoke(this, _time);
                 }
-
-                // ALWAYS update preview, even when paused (for audio visualization)
                 UpdatePreview();
             };
             _updateTimer.Start();
         }
-
 
         public void SetScript(string scriptCode)
         {
@@ -101,16 +105,21 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.Services
             try
             {
                 var oldBitmap = _previewBitmap;
+
+                // Pass audio service only if enabled, otherwise pass null
+                AudioReactivityService? audioToUse = _audioEnabled ? audioService : null;
+
                 _previewBitmap = _jsExecutor.ExecuteScriptOnCanvas(
                     _currentScript,
                     _width,
                     _height,
                     _time,
-                    audioService,
+                    audioToUse,
                     SetTimeScale,
                     SetPaused,
                     () => _time
                 );
+
                 oldBitmap?.Dispose();
                 PreviewUpdated?.Invoke(this, _previewBitmap);
 

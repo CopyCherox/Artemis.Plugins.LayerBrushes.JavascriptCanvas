@@ -6,29 +6,13 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
     public class AudioContext
     {
         private readonly AudioReactivityService _audioService;
-        private int _debugCounter = 0;
 
         public AudioContext(AudioReactivityService audioService)
         {
             _audioService = audioService;
         }
 
-        public float Bass
-        {
-            get
-            {
-                var val = _audioService?.Bass ?? 0;
-
-                // Debug first few calls
-                if (_debugCounter++ < 5)
-                {
-                    System.Diagnostics.Debug.WriteLine($"🎵 JS reading Bass: {val:F3}");
-                }
-
-                return val;
-            }
-        }
-
+        public float Bass => _audioService?.Bass ?? 0;
         public float Midrange => _audioService?.Midrange ?? 0;
         public float Treble => _audioService?.Treble ?? 0;
         public float Volume => _audioService?.Volume ?? 0;
@@ -59,5 +43,4 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
             return sum / (endBand - startBand + 1);
         }
     }
-
 }

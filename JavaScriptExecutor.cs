@@ -36,14 +36,14 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
         }
 
         public SKBitmap ExecuteScriptOnCanvas(
-    string userCode,
-    int canvasWidth,
-    int canvasHeight,
-    double time,
-    Services.AudioReactivityService? audioService = null,
-    Action<double>? setTimeScaleCallback = null,
-    Action<bool>? setPausedCallback = null,
-    Func<double>? getTimeCallback = null)
+            string userCode,
+            int canvasWidth,
+            int canvasHeight,
+            double time,
+            Services.AudioReactivityService? audioService = null,
+            Action<double>? setTimeScaleCallback = null,
+            Action<bool>? setPausedCallback = null,
+            Func<double>? getTimeCallback = null)
         {
             SKBitmap? canvasBitmap = null;
             SKCanvas? canvas = null;
@@ -91,7 +91,7 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
                 _engine.SetValue("ctx", ctx);
 
                 // Set audio context
-                if (audioService != null)
+                if (audioService != null && audioService.IsEnabled)
                 {
                     var audioCtx = new AudioContext(audioService);
                     _engine.SetValue("audio", audioCtx);

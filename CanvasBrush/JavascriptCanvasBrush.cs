@@ -16,31 +16,26 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
         private JavaScriptExecutor? _jsExecutor;
         private readonly object _lockObject = new object();
         private string? _lastError;
-
-        // FRAME SKIPPING for performance
         private int _frameCounter = 0;
-
-
-        // Cache LED layout calculations
         private float _cachedOffsetX = 0;
         private float _cachedOffsetY = 0;
         private float _cachedLayerWidth = 0;
         private float _cachedLayerHeight = 0;
         private int _cachedLedCount = 0;
-
         private Services.AudioReactivityService? _audioService;
+        private bool _lastAudioEnabled = false;
 
         public override void EnableLayerBrush()
         {
             ConfigurationDialog = new LayerBrushConfigurationDialog<JavascriptCanvasBrushConfigurationViewModel>(1300, 800);
+
             try
             {
                 _jsExecutor = new JavaScriptExecutor();
-                _audioService = new Services.AudioReactivityService();
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Enable brush error: {ex.Message}");
+                _lastError = ex.Message;
             }
         }
 
@@ -54,12 +49,12 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
                     _canvasBitmap = null;
                     _jsExecutor?.Dispose();
                     _jsExecutor = null;
-                    _audioService?.Dispose(); 
-                    _audioService = null;     
+                    _audioService?.Dispose();
+                    _audioService = null;
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Disable brush error: {ex.Message}");
+                    _lastError = ex.Message;
                 }
             }
         }
@@ -67,21 +62,43 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
         public override void Update(double deltaTime)
         {
             _time += deltaTime;
-            _frameCounter++;
 
-            if (_frameCounter == 1)
+            bool audioEnabled = Properties?.EnableAudio?.CurrentValue ?? false;
+            if (audioEnabled != _lastAudioEnabled)
             {
-                System.Diagnostics.Debug.WriteLine($"🎮 First Update, audioService is null: {_audioService == null}");
+                if (audioEnabled)
+                {
+                    if (_audioService == null)
+                    {
+                        _audioService = new Services.AudioReactivityService();
+                        _audioService.Start();
+                    }
+                }
+                else
+                {
+                    if (_audioService != null)
+                    {
+                        _audioService.Dispose();
+                        _audioService = null;
+                    }
+                }
+                _lastAudioEnabled = audioEnabled;
             }
 
-            // Start audio
-            _audioService?.Start();
+            if (audioEnabled && _audioService != null)
+            {
+                _audioService.Start();
+            }
 
+            // FIX: Check frame skip BEFORE incrementing
+            // This ensures frame 0 always renders
             int updateInterval = Properties?.UpdateEveryNFrames?.CurrentValue ?? 2;
             if (_frameCounter % updateInterval != 0)
             {
+                _frameCounter++;
                 return;
             }
+            _frameCounter++;
 
             try
             {
@@ -103,7 +120,6 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
                     var leds = Layer.Leds;
                     if (leds.Count == 0) return;
 
-                    // Update cached layout only if LED count changed
                     if (_cachedLedCount != leds.Count)
                     {
                         float minX = leds.Min(led => led.AbsoluteRectangle.Left);
@@ -122,16 +138,19 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
                     int canvasHeight = Math.Max(100, Math.Min(500, (int)_cachedLayerHeight));
 
                     var oldBitmap = _canvasBitmap;
+                    Services.AudioReactivityService? audioToUse = (audioEnabled && _audioService != null) ? _audioService : null;
+
                     _canvasBitmap = _jsExecutor.ExecuteScriptOnCanvas(
                         currentScript.JavaScriptCode,
                         canvasWidth,
                         canvasHeight,
                         _time,
-                        _audioService,
+                        audioToUse,
                         null,
                         null,
                         null
                     );
+
                     oldBitmap?.Dispose();
                     _lastError = null;
                 }
@@ -141,24 +160,9 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
                 if (_lastError != ex.Message)
                 {
                     _lastError = ex.Message;
-
-                    // Get detailed error from executor
-                    if (_jsExecutor != null && !string.IsNullOrEmpty(_jsExecutor.LastError))
-                    {
-                        System.Diagnostics.Debug.WriteLine($"❌ Script Error: {_jsExecutor.LastError}");
-                        if (_jsExecutor.ErrorLine > 0)
-                        {
-                            System.Diagnostics.Debug.WriteLine($"   at Line {_jsExecutor.ErrorLine}, Column {_jsExecutor.ErrorColumn}");
-                        }
-                    }
-                    else
-                    {
-                        System.Diagnostics.Debug.WriteLine($"Update error: {ex.Message}");
-                    }
                 }
                 GenerateFallbackEffect();
             }
-
         }
 
         public override void Render(SKCanvas canvas, SKRect bounds, SKPaint paint)
@@ -179,23 +183,18 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
                     if (leds.Count == 0) return;
                     if (_cachedLayerWidth <= 0 || _cachedLayerHeight <= 0) return;
 
-                    // KEY FIX: Map LEDs directly to bitmap dimensions
-                    // This ensures JavaScript canvas coordinate space matches LED sampling
                     for (int i = 0; i < leds.Count; i++)
                     {
                         var led = leds[i];
                         float ledCenterX = led.AbsoluteRectangle.MidX - _cachedOffsetX;
                         float ledCenterY = led.AbsoluteRectangle.MidY - _cachedOffsetY;
 
-                        // Sample from bitmap using normalized coordinates (0.0 to 1.0)
-                        // Then scale to actual bitmap dimensions
                         float normalizedX = ledCenterX / _cachedLayerWidth;
                         float normalizedY = ledCenterY / _cachedLayerHeight;
 
                         int canvasX = (int)(normalizedX * (_canvasBitmap.Width - 1));
                         int canvasY = (int)(normalizedY * (_canvasBitmap.Height - 1));
 
-                        // Clamp to valid bitmap coordinates
                         canvasX = Math.Clamp(canvasX, 0, _canvasBitmap.Width - 1);
                         canvasY = Math.Clamp(canvasY, 0, _canvasBitmap.Height - 1);
 
@@ -219,7 +218,7 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Render error: {ex.Message}");
+                    _lastError = ex.Message;
                 }
             }
         }
@@ -243,27 +242,26 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
                 {
                     var oldBitmap = _canvasBitmap;
                     _canvasBitmap = _jsExecutor.ExecuteScriptOnCanvas(
-                        @"// Fallback rainbow
-ctx.clear(0, 0, 0);
-for (let x = 0; x < width; x++) {
-    let hue = (x / width + time * 0.5) % 1.0;
-    let rgb = ctx.hslToRgb(hue, 1.0, 0.5);
-    ctx.fillStyle(rgb.r, rgb.g, rgb.b);
-    ctx.fillRect(x, 0, 1, height);
-}",
+                        @"ctx.clear(0, 0, 0);
+                          for (let x = 0; x < width; x++) {
+                              let hue = (x / width + time * 0.5) % 1.0;
+                              let rgb = ctx.hslToRgb(hue, 1.0, 0.5);
+                              ctx.fillStyle(rgb.r, rgb.g, rgb.b);
+                              ctx.fillRect(x, 0, 1, height);
+                          }",
                         800,
                         100,
                         _time,
-                        null,   // No audio service in fallback
-                        null,   // No time scale callback
-                        null,   // No pause callback
-                        null    // No get time callback                  
+                        null,
+                        null,
+                        null,
+                        null
                     );
                     oldBitmap?.Dispose();
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Fallback error: {ex.Message}");
+                    _lastError = ex.Message;
                 }
             }
         }

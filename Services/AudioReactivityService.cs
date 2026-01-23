@@ -328,6 +328,7 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.Services
 
         private void OnDataAvailable(object? sender, object e)
         {
+            if (!IsEnabled) return;
             try
             {
                 Type eventArgsType = e.GetType();
@@ -356,6 +357,7 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.Services
 
         private void ProcessAudioData(byte[] buffer, int bytesRecorded)
         {
+            if (!IsEnabled) return;
             lock (_lock)
             {
                 try
@@ -390,6 +392,8 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.Services
 
         private void PerformFFT()
         {
+            if (!IsEnabled) return;
+
             for (int i = 0; i < FftSize; i++)
             {
                 float window = (float)(0.54 - 0.46 * Math.Cos(2 * Math.PI * i / (FftSize - 1)));
@@ -408,6 +412,17 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.Services
 
         private void UpdateFrequencyBands()
         {
+            if (!IsEnabled)
+            {
+                // Reset all values when disabled
+                Bass = 0;
+                Midrange = 0;
+                Treble = 0;
+                Volume = 0;
+                Array.Fill(FrequencyBands, 0);
+                return;
+            }
+
             int samplesPerBand = (FftSize / 2) / 32;
 
             for (int i = 0; i < 32; i++)

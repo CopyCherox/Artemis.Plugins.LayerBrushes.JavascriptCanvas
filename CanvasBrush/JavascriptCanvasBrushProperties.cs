@@ -17,7 +17,6 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
         [PropertyDescription(Name = "Enable Audio Reactivity")]
         public BoolLayerProperty? EnableAudio { get; set; }
 
-
         private ObservableCollection<JavascriptScriptModel>? _scriptsCache;
 
         public LayerProperty<string> EnabledScriptName { get; set; } = null!;
@@ -30,7 +29,6 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
             {
                 if (_scriptsCache == null)
                 {
-                    System.Diagnostics.Debug.WriteLine($"📂 Loading scripts for Properties {this.GetHashCode()}");
                     _scriptsCache = LoadScriptsFromFolder();
                 }
                 return _scriptsCache;
@@ -48,7 +46,6 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
         {
             EnabledScriptName.IsHidden = true;
             UpdateEveryNFrames.IsHidden = true;
-
             ScriptsFolderManager.ScriptsChanged += OnScriptsChangedExternally;
         }
 
@@ -59,10 +56,6 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
 
         private void OnScriptsChangedExternally(object? sender, System.EventArgs e)
         {
-            var myHashCode = this.GetHashCode();
-            System.Diagnostics.Debug.WriteLine($"🔔 OnScriptsChangedExternally called on Properties {myHashCode} - clearing cache");
-
-            // ✅ Always clear cache and refresh - no ignore mechanism
             _scriptsCache = null;
             RefreshScripts();
         }
@@ -70,8 +63,8 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
         private ObservableCollection<JavascriptScriptModel> LoadScriptsFromFolder()
         {
             var scripts = ScriptsFolderManager.LoadAllScripts();
-
             var enabledName = EnabledScriptName.CurrentValue;
+
             if (!string.IsNullOrEmpty(enabledName))
             {
                 var scriptToEnable = scripts.FirstOrDefault(s => s.ScriptName == enabledName);
@@ -96,8 +89,6 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
         {
             if (_scriptsCache != null)
             {
-                System.Diagnostics.Debug.WriteLine($"💾 Properties {this.GetHashCode()} saving {_scriptsCache.Count} scripts...");
-
                 foreach (var script in _scriptsCache)
                 {
                     ScriptsFolderManager.SaveScriptToFile(script.ScriptName, script.JavaScriptCode);
@@ -108,19 +99,12 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
                 {
                     EnabledScriptName.SetCurrentValue(enabledScript.ScriptName);
                 }
-
-                System.Diagnostics.Debug.WriteLine($"💾 Saved {_scriptsCache.Count} scripts to folder");
             }
         }
 
         public void RefreshScripts()
         {
-            var subscriberCount = ScriptsRefreshed?.GetInvocationList()?.Length ?? 0;
-            System.Diagnostics.Debug.WriteLine($"🔄 RefreshScripts called on Properties {this.GetHashCode()} - {subscriberCount} subscriber(s)");
-
             ScriptsRefreshed?.Invoke(this, EventArgs.Empty);
-
-            System.Diagnostics.Debug.WriteLine($"✅ ScriptsRefreshed event invoked");
         }
 
         public int GetScriptsRefreshedSubscriberCount()

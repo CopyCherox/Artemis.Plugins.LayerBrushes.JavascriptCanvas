@@ -22,12 +22,13 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
             _width = width;
             _height = height;
 
+            // CHANGED: Default colors set to White
             _currentState = new CanvasState
             {
                 Transform = SKMatrix.Identity,
                 GlobalAlpha = 1.0f,
-                FillColor = SKColors.Black,
-                StrokeColor = SKColors.Black,
+                FillColor = SKColors.White,   // Was Black
+                StrokeColor = SKColors.White, // Was Black
                 LineWidth = 1.0f,
                 LineCap = SKStrokeCap.Butt,
                 LineJoin = SKStrokeJoin.Miter,
@@ -84,27 +85,33 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
 
         private void DrawWithShadow(Action drawAction)
         {
-            if (HasActiveShadow)
+            if (_currentState.ShadowBlur <= 0 || _currentState.ShadowColor.Alpha == 0)
             {
-                var originalColor = _paint.Color;
-                var originalShader = _paint.Shader;
-
-                _canvas.Save();
-                _canvas.Translate(_currentState.ShadowOffsetX, _currentState.ShadowOffsetY);
-
-                _paint.MaskFilter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, _currentState.ShadowBlur / 3);
-                _paint.Color = _currentState.ShadowColor;
-                _paint.Shader = null;
-
                 drawAction();
-
-                _canvas.Restore();
-
-                _paint.MaskFilter = null;
-                _paint.Color = originalColor;
-                _paint.Shader = originalShader;
+                return;
             }
 
+            float blurRadius = Math.Max(1f, _currentState.ShadowBlur * 0.5f);
+
+            var originalColor = _paint.Color;
+            var originalShader = _paint.Shader;
+            var originalMaskFilter = _paint.MaskFilter;
+
+            // Shadow
+            _canvas.Save();
+            _canvas.Translate(_currentState.ShadowOffsetX, _currentState.ShadowOffsetY);
+            _paint.MaskFilter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, blurRadius);
+            _paint.Color = _currentState.ShadowColor;
+            _paint.Shader = null;
+            drawAction();
+            _canvas.Restore();
+
+            // Reset
+            _paint.MaskFilter = originalMaskFilter;
+            _paint.Color = originalColor;
+            _paint.Shader = originalShader;
+
+            // Main draw
             drawAction();
         }
 

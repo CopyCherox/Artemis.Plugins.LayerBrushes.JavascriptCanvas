@@ -221,7 +221,7 @@ ctx.clear(color * 1, color * 0.4, 0);" },
 
                 SaveScriptToFile(newName, code);
                 File.Delete(oldPath);
-                NotifyScriptsChanged();
+                //NotifyScriptsChanged();
             }
             catch (Exception)
             {

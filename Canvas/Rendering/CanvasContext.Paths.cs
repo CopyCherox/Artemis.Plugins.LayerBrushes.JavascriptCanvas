@@ -7,7 +7,6 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
     public partial class CanvasContext
     {
         // ============= PATH METHODS =============
-
         public void beginPath()
         {
             _currentPath?.Dispose();
@@ -34,23 +33,19 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
         public void arc(double x, double y, double radius, double startAngle, double endAngle, bool counterclockwise = false)
         {
             if (_currentPath == null) beginPath();
-
             float startDeg = (float)(startAngle * 180 / Math.PI);
             float endDeg = (float)(endAngle * 180 / Math.PI);
             float sweep = endDeg - startDeg;
-
             if (counterclockwise && sweep > 0)
                 sweep -= 360;
             else if (!counterclockwise && sweep < 0)
                 sweep += 360;
-
             var rect = new SKRect(
                 (float)(x - radius),
                 (float)(y - radius),
                 (float)(x + radius),
                 (float)(y + radius)
             );
-
             _currentPath?.ArcTo(rect, startDeg, sweep, false);
         }
 
@@ -81,18 +76,15 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
         public void ellipse(double x, double y, double radiusX, double radiusY, double rotation, double startAngle, double endAngle, bool counterclockwise = false)
         {
             if (_currentPath == null) beginPath();
-
             var rect = new SKRect(
                 (float)(x - radiusX),
                 (float)(y - radiusY),
                 (float)(x + radiusX),
                 (float)(y + radiusY)
             );
-
             float startDeg = (float)(startAngle * 180 / Math.PI);
             float endDeg = (float)(endAngle * 180 / Math.PI);
             float sweep = endDeg - startDeg;
-
             if (counterclockwise && sweep > 0)
                 sweep -= 360;
             else if (!counterclockwise && sweep < 0)
@@ -104,10 +96,13 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
             if (rotation != 0)
             {
                 var matrix = SKMatrix.CreateRotation((float)rotation, (float)x, (float)y);
-                tempPath.Transform(matrix);
+                // FIXED: Use AddPath with matrix overload instead of Transform
+                _currentPath?.AddPath(tempPath, in matrix);
             }
-
-            _currentPath?.AddPath(tempPath);
+            else
+            {
+                _currentPath?.AddPath(tempPath);
+            }
         }
 
         public void fill()

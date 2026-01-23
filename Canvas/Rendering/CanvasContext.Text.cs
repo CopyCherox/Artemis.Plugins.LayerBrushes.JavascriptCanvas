@@ -1,133 +1,138 @@
 using SkiaSharp;
 using System;
+using System.Text.RegularExpressions;
 
 namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
 {
     public partial class CanvasContext
     {
-        public void Font(string fontSpec)
-        {
-            try
-            {
-                var parts = fontSpec.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                if (parts.Length >= 2)
-                {
-                    string sizeStr = parts[0].Replace("px", "").Replace("pt", "");
-                    if (float.TryParse(sizeStr, out float size))
-                    {
-                        _currentState.FontSize = size;
-                    }
-                    _currentState.FontFamily = string.Join(" ", parts, 1, parts.Length - 1);
-                }
-            }
-            catch { }
-        }
+        // RELAXED PARSER: Finds any number (e.g. "30", "12.5") to use as size
+        private static readonly Regex SizeParser = new Regex(@"(\d+(\.\d+)?)", RegexOptions.Compiled);
 
-        public void TextAlign(string align)
+        // ==================================================================================
+        // FONT METHOD (Renamed to setFont as requested)
+        // ==================================================================================
+        public void setFont(string fontSpec)
         {
-            _currentState.TextAlign = align.ToLower();
-        }
-
-        public void TextBaseline(string baseline)
-        {
-            _currentState.TextBaseline = baseline.ToLower();
-        }
-
-        public void FillText(string text, float x, float y)
-        {
-            if (string.IsNullOrEmpty(text)) return;
-            DrawText(text, x, y, false);
-        }
-
-        public void StrokeText(string text, float x, float y)
-        {
-            if (string.IsNullOrEmpty(text)) return;
-            DrawText(text, x, y, true);
-        }
-
-        public object MeasureText(string text)
-        {
-            if (string.IsNullOrEmpty(text))
-                return new { width = 0.0 };
+            if (string.IsNullOrWhiteSpace(fontSpec)) return;
 
             try
             {
-                using var font = new SKFont(
-                    SKTypeface.FromFamilyName(_currentState.FontFamily),
-                    _currentState.FontSize
-                );
-
-                float width = font.MeasureText(text);
-                return new { width = (double)width };
-            }
-            catch
-            {
-                return new { width = text.Length * _currentState.FontSize * 0.6 };
-            }
-        }
-
-        private void DrawText(string text, float x, float y, bool stroke = false)
-        {
-            try
-            {
-                // Create SKFont instead of using obsolete SKPaint properties
-                using var font = new SKFont(
-                    SKTypeface.FromFamilyName(_currentState.FontFamily),
-                    _currentState.FontSize
-                );
-
-                // Measure text using SKFont
-                float textWidth = font.MeasureText(text);
-
-                // Adjust X for alignment
-                float adjustedX = x;
-                switch (_currentState.TextAlign)
+                var match = SizeParser.Match(fontSpec);
+                if (match.Success && float.TryParse(match.Value, out float size))
                 {
-                    case "center":
-                        adjustedX = x - (textWidth / 2);
-                        break;
-                    case "right":
-                    case "end":
-                        adjustedX = x - textWidth;
-                        break;
-                }
+                    _currentState.FontSize = size;
+                    // Remove the number to isolate the Family
+                    string temp = fontSpec.Remove(match.Index, match.Length);
 
-                // Adjust Y for baseline (SKCanvas baseline is at bottom)
-                float adjustedY = y;
-                switch (_currentState.TextBaseline)
-                {
-                    case "top":
-                        adjustedY = y + (_currentState.FontSize * 0.85f);
-                        break;
-                    case "middle":
-                        adjustedY = y + (_currentState.FontSize * 0.3f);
-                        break;
-                    case "bottom":
-                        adjustedY = y;
-                        break;
-                    case "alphabetic":
-                    default:
-                        adjustedY = y;
-                        break;
-                }
+                    // Clean up "px", "pt", quotes
+                    string family = temp.Replace("px", "", StringComparison.OrdinalIgnoreCase)
+                                        .Replace("pt", "", StringComparison.OrdinalIgnoreCase)
+                                        .Replace("\"", "")
+                                        .Replace("'", "")
+                                        .Trim();
 
-                // Set style
-                if (stroke)
-                {
-                    ApplyPaintState(SKPaintStyle.Stroke);
+                    if (!string.IsNullOrWhiteSpace(family))
+                        _currentState.FontFamily = family;
                 }
                 else
                 {
-                    ApplyPaintState(SKPaintStyle.Fill);
+                    // No number found? Assume it's just a family name
+                    _currentState.FontFamily = fontSpec.Replace("\"", "").Replace("'", "").Trim();
                 }
-
-                // Draw using the new non-obsolete method
-                DrawWithShadow(() => _canvas.DrawText(text, adjustedX, adjustedY, font, _paint));
             }
-            catch (Exception ex)
+            catch
             {
-                System.Diagnostics.Debug.WriteLine($"Text error: {ex.Message}");
+                _currentState.FontFamily = fontSpec;
             }
+        }
+
+        // ==================================================================================
+        // ALIGNMENT
+        // ==================================================================================
+        public void textAlign(string align) => _currentState.TextAlign = align?.ToLower() ?? "start";
+        public void textBaseline(string baseline) => _currentState.TextBaseline = baseline?.ToLower() ?? "alphabetic";
+
+        // ==================================================================================
+        // DRAWING
+        // ==================================================================================
+        public void fillText(string text, double x, double y)
+        {
+            if (string.IsNullOrEmpty(text)) return;
+            ApplyPaintState(SKPaintStyle.Fill);
+            DrawWithShadow(() => DrawTextInternal(text, (float)x, (float)y));
+        }
+
+        public void strokeText(string text, double x, double y)
+        {
+            if (string.IsNullOrEmpty(text)) return;
+            ApplyPaintState(SKPaintStyle.Stroke);
+            DrawWithShadow(() => DrawTextInternal(text, (float)x, (float)y));
+        }
+
+        public object measureText(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return new { width = 0.0 };
+
+            using var font = CreateFont();
+
+            // SUPPRESS WARNINGS: We must use the obsolete SKPaint methods
+            // because SKFont methods cause a MethodNotFound exception at runtime.
+#pragma warning disable CS0618
+            _paint.Typeface = font.Typeface;
+            _paint.TextSize = font.Size;
+            return new { width = (double)_paint.MeasureText(text) };
+#pragma warning restore CS0618
+        }
+
+        // ==================================================================================
+        // HELPERS
+        // ==================================================================================
+        private SKFont CreateFont()
+        {
+            var typeface = SKTypeface.FromFamilyName(_currentState.FontFamily);
+            if (typeface == null || typeface.FamilyName == SKTypeface.Default.FamilyName)
+            {
+                string[] fallbacks = { "Segoe UI", "Arial", "Calibri", "Consolas" };
+                foreach (var family in fallbacks)
+                {
+                    if (family.Equals(_currentState.FontFamily, StringComparison.OrdinalIgnoreCase)) continue;
+                    var fb = SKTypeface.FromFamilyName(family);
+                    if (fb != null && fb.FamilyName != SKTypeface.Default.FamilyName)
+                    {
+                        typeface = fb;
+                        break;
+                    }
+                }
+            }
+            return new SKFont(typeface ?? SKTypeface.Default, _currentState.FontSize);
+        }
+
+        private void DrawTextInternal(string text, float x, float y)
+        {
+            using var font = CreateFont();
+
+#pragma warning disable CS0618 
+            // Sync paint for consistent measuring
+            _paint.Typeface = font.Typeface;
+            _paint.TextSize = font.Size;
+            float width = _paint.MeasureText(text);
+#pragma warning restore CS0618
+
+            float adjX = x;
+            float adjY = y;
+            var metrics = font.Metrics;
+
+            if (_currentState.TextAlign == "center") adjX -= width / 2;
+            else if (_currentState.TextAlign == "right" || _currentState.TextAlign == "end") adjX -= width;
+
+            switch (_currentState.TextBaseline)
+            {
+                case "top": adjY -= metrics.Ascent; break;
+                case "middle": adjY += (metrics.CapHeight / 2) - metrics.Descent; break;
+            }
+
+            _canvas.DrawText(text, adjX, adjY, font, _paint);
         }
     }
 }

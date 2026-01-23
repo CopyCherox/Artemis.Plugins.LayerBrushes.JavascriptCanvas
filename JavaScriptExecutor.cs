@@ -1,190 +1,110 @@
 using Jint;
-using System;
 using SkiaSharp;
+using System;
+using System.Diagnostics;
 
 namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
 {
     public class JavaScriptExecutor : IDisposable
     {
         private Engine? _engine;
-
+        private bool _engineInitialized = false;
         public string LastError { get; private set; } = string.Empty;
         public int ErrorLine { get; private set; } = -1;
         public int ErrorColumn { get; private set; } = -1;
 
-        public JavaScriptExecutor()
-        {
-            InitializeEngine();
-        }
+        public JavaScriptExecutor() => InitializeEngine();
 
         private void InitializeEngine()
         {
             try
             {
-                _engine = new Engine(options =>
+                _engine = new Engine(opts =>
                 {
-                    options.TimeoutInterval(TimeSpan.Zero);
-                    options.LimitRecursion(0);
-                    options.MaxStatements(0);
+                    opts.TimeoutInterval(TimeSpan.FromSeconds(2)); // Prevent infinite loops
+                    opts.LimitRecursion(100);
                 });
+
+                // Initialize State
+                _engine.Execute("var state = {};");
+
+                // ADDED: Console support for debugging
+                _engine.SetValue("console", new
+                {
+                    log = new Action<object>(o => Debug.WriteLine($"[JS Log] {o}")),
+                    error = new Action<object>(o => Debug.WriteLine($"[JS Error] {o}")),
+                    warn = new Action<object>(o => Debug.WriteLine($"[JS Warn] {o}"))
+                });
+
+                _engineInitialized = true;
             }
             catch (Exception ex)
             {
-                LastError = $"Engine initialization failed: {ex.Message}";
-                System.Diagnostics.Debug.WriteLine($"Engine init error: {ex.Message}");
+                LastError = $"Engine init failed: {ex.Message}";
+                _engineInitialized = false;
             }
         }
 
-        public SKBitmap ExecuteScriptOnCanvas(
-            string userCode,
-            int canvasWidth,
-            int canvasHeight,
-            double time,
+        public SKBitmap ExecuteScriptOnCanvas(string userCode, int width, int height, double time,
             Services.AudioReactivityService? audioService = null,
-            Action<double>? setTimeScaleCallback = null,
-            Action<bool>? setPausedCallback = null,
-            Func<double>? getTimeCallback = null)
+            Action<double>? setTimeScale = null,
+            Action<bool>? setPaused = null,
+            Func<double>? getTime = null)
         {
-            SKBitmap? canvasBitmap = null;
-            SKCanvas? canvas = null;
-            SKPaint? paint = null;
-            LastError = string.Empty;
-            ErrorLine = -1;
-            ErrorColumn = -1;
+            if (!_engineInitialized || _engine == null) InitializeEngine();
+
+            if (_engine == null)
+            {
+                return ErrorBitmapHelper.CreateErrorBitmap(width, height, "JS Engine Failed");
+            }
+
+            // Setup Canvas
+            using var bitmap = new SKBitmap(width, height);
+            using var canvas = new SKCanvas(bitmap);
+            using var paint = new SKPaint { IsAntialias = true };
+
+            // IMPORTANT: Context is new every frame!
+            var ctx = new CanvasContext(canvas, paint, width, height);
 
             try
             {
-                if (string.IsNullOrWhiteSpace(userCode))
-                {
-                    LastError = "No script code provided";
-                    return ErrorBitmapHelper.CreateErrorBitmap(canvasWidth, canvasHeight, "No script");
-                }
+                LastError = string.Empty;
 
-                if (canvasWidth <= 0 || canvasHeight <= 0)
-                {
-                    LastError = $"Invalid canvas dimensions: {canvasWidth}x{canvasHeight}";
-                    return ErrorBitmapHelper.CreateErrorBitmap(100, 100, "Invalid size");
-                }
-
-                canvasWidth = Math.Clamp(canvasWidth, 1, 10000);
-                canvasHeight = Math.Clamp(canvasHeight, 1, 10000);
-
-                InitializeEngine();
-                if (_engine == null)
-                {
-                    LastError = "JavaScript engine is null";
-                    return ErrorBitmapHelper.CreateErrorBitmap(canvasWidth, canvasHeight, "Engine null");
-                }
-
-                canvasBitmap = new SKBitmap(canvasWidth, canvasHeight);
-                canvas = new SKCanvas(canvasBitmap);
-                paint = new SKPaint { IsAntialias = true };
-                canvas.Clear(SKColors.Black);
-
-                // Set basic values
+                // Inject Variables
                 _engine.SetValue("time", time);
-                _engine.SetValue("width", canvasWidth);
-                _engine.SetValue("height", canvasHeight);
-
-                // Set canvas context
-                var ctx = new CanvasContext(canvas, paint, canvasWidth, canvasHeight);
+                _engine.SetValue("width", width);
+                _engine.SetValue("height", height);
                 _engine.SetValue("ctx", ctx);
 
-                // Set audio context
-                if (audioService != null && audioService.IsEnabled)
-                {
-                    var audioCtx = new AudioContext(audioService);
-                    _engine.SetValue("audio", audioCtx);
-                }
-                else
-                {
-                    _engine.Execute(@"
-                var audio = {
-                    Bass: 0,
-                    Midrange: 0,
-                    Treble: 0,
-                    Volume: 0,
-                    IsEnabled: false,
-                    GetBand: function() { return 0; },
-                    GetRange: function() { return 0; }
-                };
-            ");
-                }
+                // Simple Audio Mock/Proxy
+                if (audioService != null) _engine.SetValue("audio", new AudioContext(audioService));
+                else _engine.Execute("var audio = { Bass:0, Midrange:0, Treble:0, Volume:0 };");
 
-                // NEW: Set time control context
-                if (setTimeScaleCallback != null && setPausedCallback != null && getTimeCallback != null)
+                if (setTimeScale != null && setPaused != null && getTime != null)
                 {
-                    var timeControl = new TimeControl(setTimeScaleCallback, setPausedCallback, getTimeCallback);
+                    var timeControl = new TimeControl(setTimeScale, setPaused, getTime);
                     _engine.SetValue("timeControl", timeControl);
                 }
-                else
-                {
-                    // Create dummy time control for non-preview contexts
-                    _engine.Execute(@"
-                var timeControl = {
-                    Speed: 1.0,
-                    IsPaused: false,
-                    Current: 0,
-                    SetSpeed: function(speed) { this.Speed = speed; },
-                    Pause: function() { this.IsPaused = true; },
-                    Resume: function() { this.IsPaused = false; },
-                    Toggle: function() { this.IsPaused = !this.IsPaused; }
-                };
-            ");
-                }
 
-                try
-                {
-                    _engine.Execute(userCode);
-                }
-                catch (Jint.Runtime.JavaScriptException jsEx)
-                {
-                    ErrorLine = jsEx.Location.Start.Line;
-                    ErrorColumn = jsEx.Location.Start.Column;
-                    LastError = $"JS Error at Line {ErrorLine}, Col {ErrorColumn}: {jsEx.Error}";
-                    System.Diagnostics.Debug.WriteLine(LastError);
-                    canvas?.Dispose();
-                    paint?.Dispose();
-                    canvasBitmap?.Dispose();
-                    return ErrorBitmapHelper.CreateErrorBitmap(canvasWidth, canvasHeight, $"Line {ErrorLine}: {jsEx.Error}");
-                }
-                catch (Exception innerEx)
-                {
-                    LastError = $"Script execution error: {innerEx.Message}";
-                    System.Diagnostics.Debug.WriteLine(LastError);
-                    canvas?.Dispose();
-                    paint?.Dispose();
-                    canvasBitmap?.Dispose();
-                    return ErrorBitmapHelper.CreateErrorBitmap(canvasWidth, canvasHeight, "Script error");
-                }
+                // Execute User Code (wrapped to protect scope)
+                _engine.Execute($"(function(){{ {userCode} \n}})();");
 
                 canvas.Flush();
-                return canvasBitmap;
+                return bitmap.Copy(); // Return a copy so we can dispose the original safely
+            }
+            catch (Jint.Runtime.JavaScriptException jsEx)
+            {
+                LastError = $"Line {jsEx.Location.Start.Line}: {jsEx.Message}";
+                Debug.WriteLine(LastError);
+                return ErrorBitmapHelper.CreateErrorBitmap(width, height, jsEx.Message);
             }
             catch (Exception ex)
             {
-                LastError = $"Unexpected error: {ex.GetType().Name} - {ex.Message}";
-                System.Diagnostics.Debug.WriteLine($"Unexpected error: {ex}");
-                canvas?.Dispose();
-                paint?.Dispose();
-                canvasBitmap?.Dispose();
-                return ErrorBitmapHelper.CreateErrorBitmap(canvasWidth, canvasHeight, "Script error");
-            }
-            finally
-            {
-                canvas?.Dispose();
-                paint?.Dispose();
+                LastError = ex.Message;
+                return ErrorBitmapHelper.CreateErrorBitmap(width, height, "Script Error");
             }
         }
 
-
-        public void Dispose()
-        {
-            try
-            {
-                _engine = null;
-            }
-            catch { }
-        }
+        public void Dispose() => _engine = null;
     }
 }

@@ -7,7 +7,6 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
     public partial class CanvasContext
     {
         // ============= RECTANGLES =============
-
         public void fillRect(double x, double y, double w, double h)
         {
             ApplyPaintState(SKPaintStyle.Fill);
@@ -29,7 +28,6 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
         }
 
         // ============= LEGACY/HELPER METHODS =============
-
         public void fillCircle(double x, double y, double radius)
         {
             ApplyPaintState(SKPaintStyle.Fill);
@@ -45,7 +43,7 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
         public void drawLine(double x1, double y1, double x2, double y2)
         {
             ApplyPaintState(SKPaintStyle.Stroke);
-            _canvas.DrawLine((float)x1, (float)y1, (float)x2, (float)y2, _paint);
+            DrawWithShadow(() => _canvas.DrawLine((float)x1, (float)y1, (float)x2, (float)y2, _paint));
         }
 
         public void clear(double r = 0, double g = 0, double b = 0)

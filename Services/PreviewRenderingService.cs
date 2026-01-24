@@ -137,9 +137,9 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.Services
             }
             catch (Exception ex)
             {
-                string errorMsg = ex.Message.Length > 200
-                    ? ex.Message.Substring(0, 200) + "..."
-                    : ex.Message;
+                string errorMsg = ex.Message != null && ex.Message.Length > 200
+                    ? ex.Message.Substring(0, Math.Min(200, ex.Message.Length)) + "..."
+                    : (ex.Message ?? "Unknown error");
                 ErrorOccurred?.Invoke(this, $"❌ Unexpected error: {errorMsg}");
             }
         }

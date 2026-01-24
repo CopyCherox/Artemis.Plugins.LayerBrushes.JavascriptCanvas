@@ -94,8 +94,10 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
             }
             catch (Jint.Runtime.JavaScriptException jsEx)
             {
-                LastError = $"Line {jsEx.Location.Start.Line}: {jsEx.Message}";
-                Debug.WriteLine(LastError);
+                ErrorLine = jsEx.Location.Start.Line;
+                ErrorColumn = jsEx.Location.Start.Column;
+                LastError = jsEx.Message;
+                Debug.WriteLine($"JS Error at Line {ErrorLine}, Col {ErrorColumn}: {LastError}");
                 return ErrorBitmapHelper.CreateErrorBitmap(width, height, jsEx.Message);
             }
             catch (Exception ex)

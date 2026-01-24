@@ -1,11 +1,10 @@
 ﻿using Artemis.Core;
 using Artemis.Core.LayerBrushes;
-using Artemis.Plugins.LayerBrushes.JavascriptCanvas;
+using Artemis.Plugins.LayerBrushes.JavascriptCanvas.ViewModels;
 using Artemis.UI.Shared.LayerBrushes;
 using SkiaSharp;
 using System;
 using System.Linq;
-using Artemis.Plugins.LayerBrushes.JavascriptCanvas.ViewModels;
 
 namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
 {
@@ -25,10 +24,14 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
         private Services.AudioReactivityService? _audioService;
         private bool _lastAudioEnabled = false;
 
+        // PERFORMANCE FIX: Cache pixel data instead of GetPixel() calls
+        private byte[]? _pixelCache;
+        private int _cacheWidth;
+        private int _cacheHeight;
+
         public override void EnableLayerBrush()
         {
             ConfigurationDialog = new LayerBrushConfigurationDialog<JavascriptCanvasBrushConfigurationViewModel>(1300, 800);
-
             try
             {
                 _jsExecutor = new JavaScriptExecutor();
@@ -51,6 +54,7 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
                     _jsExecutor = null;
                     _audioService?.Dispose();
                     _audioService = null;
+                    _pixelCache = null;
                 }
                 catch (Exception ex)
                 {
@@ -62,36 +66,38 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
         public override void Update(double deltaTime)
         {
             _time += deltaTime;
-
             bool audioEnabled = Properties?.EnableAudio?.CurrentValue ?? false;
-            if (audioEnabled != _lastAudioEnabled)
+
+            // THREADING FIX: Lock audio service access
+            lock (_lockObject)
             {
-                if (audioEnabled)
+                if (audioEnabled != _lastAudioEnabled)
                 {
-                    if (_audioService == null)
+                    if (audioEnabled)
                     {
-                        _audioService = new Services.AudioReactivityService();
-                        _audioService.Start();
+                        if (_audioService == null)
+                        {
+                            _audioService = new Services.AudioReactivityService();
+                            _audioService.Start();
+                        }
                     }
+                    else
+                    {
+                        if (_audioService != null)
+                        {
+                            _audioService.Dispose();
+                            _audioService = null;
+                        }
+                    }
+                    _lastAudioEnabled = audioEnabled;
                 }
-                else
+
+                if (audioEnabled && _audioService != null && !_audioService.IsEnabled)
                 {
-                    if (_audioService != null)
-                    {
-                        _audioService.Dispose();
-                        _audioService = null;
-                    }
+                    _audioService.Start();
                 }
-                _lastAudioEnabled = audioEnabled;
             }
 
-            if (audioEnabled && _audioService != null)
-            {
-                _audioService.Start();
-            }
-
-            // FIX: Check frame skip BEFORE incrementing
-            // This ensures frame 0 always renders
             int updateInterval = Properties?.UpdateEveryNFrames?.CurrentValue ?? 2;
             if (_frameCounter % updateInterval != 0)
             {
@@ -126,7 +132,6 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
                         float maxX = leds.Max(led => led.AbsoluteRectangle.Right);
                         float minY = leds.Min(led => led.AbsoluteRectangle.Top);
                         float maxY = leds.Max(led => led.AbsoluteRectangle.Bottom);
-
                         _cachedOffsetX = minX;
                         _cachedOffsetY = minY;
                         _cachedLayerWidth = maxX - minX;
@@ -152,6 +157,10 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
                     );
 
                     oldBitmap?.Dispose();
+
+                    // PERFORMANCE FIX: Extract pixel data once
+                    UpdatePixelCache();
+
                     _lastError = null;
                 }
             }
@@ -165,20 +174,41 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
             }
         }
 
+        // PERFORMANCE FIX: Extract pixel data to byte array for fast access
+        private void UpdatePixelCache()
+        {
+            if (_canvasBitmap == null) return;
+
+            _cacheWidth = _canvasBitmap.Width;
+            _cacheHeight = _canvasBitmap.Height;
+            int pixelCount = _cacheWidth * _cacheHeight;
+
+            if (_pixelCache == null || _pixelCache.Length != pixelCount * 4)
+            {
+                _pixelCache = new byte[pixelCount * 4];
+            }
+
+            // Extract all pixels at once - much faster than GetPixel()
+            IntPtr pixelsPtr = _canvasBitmap.GetPixels();
+            if (pixelsPtr != IntPtr.Zero)
+            {
+                System.Runtime.InteropServices.Marshal.Copy(pixelsPtr, _pixelCache, 0, _pixelCache.Length);
+            }
+        }
+
         public override void Render(SKCanvas canvas, SKRect bounds, SKPaint paint)
         {
             if (Layer?.Leds == null) return;
 
             lock (_lockObject)
             {
-                if (_canvasBitmap == null || _canvasBitmap.Width == 0 || _canvasBitmap.Height == 0)
+                if (_canvasBitmap == null || _pixelCache == null || _cacheWidth == 0 || _cacheHeight == 0)
                     return;
 
                 try
                 {
                     float brightness = Properties?.Brightness?.CurrentValue ?? 100;
                     brightness = brightness / 100f;
-
                     var leds = Layer.Leds;
                     if (leds.Count == 0) return;
                     if (_cachedLayerWidth <= 0 || _cachedLayerHeight <= 0) return;
@@ -188,22 +218,26 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
                         var led = leds[i];
                         float ledCenterX = led.AbsoluteRectangle.MidX - _cachedOffsetX;
                         float ledCenterY = led.AbsoluteRectangle.MidY - _cachedOffsetY;
-
                         float normalizedX = ledCenterX / _cachedLayerWidth;
                         float normalizedY = ledCenterY / _cachedLayerHeight;
 
-                        int canvasX = (int)(normalizedX * (_canvasBitmap.Width - 1));
-                        int canvasY = (int)(normalizedY * (_canvasBitmap.Height - 1));
+                        int canvasX = (int)(normalizedX * (_cacheWidth - 1));
+                        int canvasY = (int)(normalizedY * (_cacheHeight - 1));
+                        canvasX = Math.Clamp(canvasX, 0, _cacheWidth - 1);
+                        canvasY = Math.Clamp(canvasY, 0, _cacheHeight - 1);
 
-                        canvasX = Math.Clamp(canvasX, 0, _canvasBitmap.Width - 1);
-                        canvasY = Math.Clamp(canvasY, 0, _canvasBitmap.Height - 1);
-
-                        var pixelColor = _canvasBitmap.GetPixel(canvasX, canvasY);
+                        // PERFORMANCE FIX: Direct byte array access instead of GetPixel()
+                        // SkiaSharp uses BGRA byte order
+                        int pixelIndex = (canvasY * _cacheWidth + canvasX) * 4;
+                        byte b = _pixelCache[pixelIndex];
+                        byte g = _pixelCache[pixelIndex + 1];
+                        byte r = _pixelCache[pixelIndex + 2];
+                        // byte a = _pixelCache[pixelIndex + 3]; // Alpha not used
 
                         paint.Color = new SKColor(
-                            (byte)Math.Clamp((int)(pixelColor.Red * brightness), 0, 255),
-                            (byte)Math.Clamp((int)(pixelColor.Green * brightness), 0, 255),
-                            (byte)Math.Clamp((int)(pixelColor.Blue * brightness), 0, 255)
+                            (byte)Math.Clamp((int)(r * brightness), 0, 255),
+                            (byte)Math.Clamp((int)(g * brightness), 0, 255),
+                            (byte)Math.Clamp((int)(b * brightness), 0, 255)
                         );
 
                         var relativeRect = new SKRect(
@@ -212,7 +246,6 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
                             led.AbsoluteRectangle.Right - _cachedOffsetX,
                             led.AbsoluteRectangle.Bottom - _cachedOffsetY
                         );
-
                         canvas.DrawRect(relativeRect, paint);
                     }
                 }
@@ -235,7 +268,6 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
         private void GenerateFallbackEffect()
         {
             if (_jsExecutor == null) return;
-
             lock (_lockObject)
             {
                 try
@@ -243,12 +275,12 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
                     var oldBitmap = _canvasBitmap;
                     _canvasBitmap = _jsExecutor.ExecuteScriptOnCanvas(
                         @"ctx.clear(0, 0, 0);
-                          for (let x = 0; x < width; x++) {
-                              let hue = (x / width + time * 0.5) % 1.0;
-                              let rgb = ctx.hslToRgb(hue, 1.0, 0.5);
-                              ctx.fillStyle(rgb.r, rgb.g, rgb.b);
-                              ctx.fillRect(x, 0, 1, height);
-                          }",
+for (let x = 0; x < width; x++) {
+    let hue = (x / width + time * 0.5) % 1.0;
+    let rgb = ctx.hslToRgb(hue, 1.0, 0.5);
+    ctx.fillStyle(rgb.r, rgb.g, rgb.b);
+    ctx.fillRect(x, 0, 1, height);
+}",
                         800,
                         100,
                         _time,
@@ -258,6 +290,7 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
                         null
                     );
                     oldBitmap?.Dispose();
+                    UpdatePixelCache();
                 }
                 catch (Exception ex)
                 {

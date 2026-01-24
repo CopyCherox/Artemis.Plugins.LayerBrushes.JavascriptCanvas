@@ -141,6 +141,7 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
         {
             if (gradient is CanvasGradient gb)
             {
+                _currentState.FillShader?.Dispose();
                 _currentState.FillShader = gb.Build();
             }
         }
@@ -149,6 +150,7 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
         {
             if (gradient is CanvasGradient gb)
             {
+                _currentState.StrokeShader?.Dispose();
                 _currentState.StrokeShader = gb.Build();
             }
         }
@@ -212,6 +214,8 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
                     (byte)Math.Clamp((int)b2, 0, 255)
                 )
             };
+
+            _currentState.FillShader?.Dispose();
 
             var shader = SKShader.CreateLinearGradient(
                 new SKPoint((float)x0, (float)y0),

@@ -1,11 +1,10 @@
-using Artemis.Plugins.LayerBrushes.HTMLCanvas;
 using SkiaSharp;
 using System;
 using System.Collections.Generic;
 
 namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
 {
-    public partial class CanvasContext
+    public partial class CanvasContext : IDisposable
     {
         private readonly SKCanvas _canvas;
         private readonly SKPaint _paint;
@@ -14,6 +13,7 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
         private readonly Stack<CanvasState> _stateStack = new Stack<CanvasState>();
         private SKPath? _currentPath;
         private CanvasState _currentState;
+        private bool _disposed = false;
 
         public CanvasContext(SKCanvas canvas, SKPaint paint, int width, int height)
         {
@@ -22,13 +22,12 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
             _width = width;
             _height = height;
 
-            // CHANGED: Default colors set to White
             _currentState = new CanvasState
             {
                 Transform = SKMatrix.Identity,
                 GlobalAlpha = 1.0f,
-                FillColor = SKColors.White,   // Was Black
-                StrokeColor = SKColors.White, // Was Black
+                FillColor = SKColors.White,
+                StrokeColor = SKColors.White,
                 LineWidth = 1.0f,
                 LineCap = SKStrokeCap.Butt,
                 LineJoin = SKStrokeJoin.Miter,
@@ -43,6 +42,38 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
                 FontFamily = "Arial",
                 BlendMode = SKBlendMode.SrcOver
             };
+        }
+
+        // MEMORY LEAK FIX: Implement IDisposable
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (_disposed) return;
+
+            if (disposing)
+            {
+                _currentPath?.Dispose();
+                _currentPath = null;
+
+                // Dispose all shaders in current state
+                _currentState.FillShader?.Dispose();
+                _currentState.StrokeShader?.Dispose();
+
+                // Dispose all shaders in state stack
+                while (_stateStack.Count > 0)
+                {
+                    var state = _stateStack.Pop();
+                    state.FillShader?.Dispose();
+                    state.StrokeShader?.Dispose();
+                }
+            }
+
+            _disposed = true;
         }
 
         // Internal helpers
@@ -70,7 +101,6 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
                     _paint.Shader = null;
                     _paint.Color = ApplyAlpha(_currentState.StrokeColor);
                 }
-
                 _paint.StrokeWidth = _currentState.LineWidth;
                 _paint.StrokeCap = _currentState.LineCap;
                 _paint.StrokeJoin = _currentState.LineJoin;
@@ -92,26 +122,30 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
             }
 
             float blurRadius = Math.Max(1f, _currentState.ShadowBlur * 0.5f);
-
             var originalColor = _paint.Color;
             var originalShader = _paint.Shader;
             var originalMaskFilter = _paint.MaskFilter;
 
-            // Shadow
+            // Shadow pass
             _canvas.Save();
             _canvas.Translate(_currentState.ShadowOffsetX, _currentState.ShadowOffsetY);
-            _paint.MaskFilter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, blurRadius);
+
+            var shadowMaskFilter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, blurRadius);
+            _paint.MaskFilter = shadowMaskFilter;
             _paint.Color = _currentState.ShadowColor;
             _paint.Shader = null;
             drawAction();
             _canvas.Restore();
 
-            // Reset
+            // MEMORY LEAK FIX: Dispose mask filter
+            shadowMaskFilter?.Dispose();
+
+            // Reset paint state
             _paint.MaskFilter = originalMaskFilter;
             _paint.Color = originalColor;
             _paint.Shader = originalShader;
 
-            // Main draw
+            // Main draw pass
             drawAction();
         }
 

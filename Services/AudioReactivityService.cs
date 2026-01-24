@@ -10,7 +10,7 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.Services
     {
         private readonly object _lock = new object();
         private Thread? _audioThread;
-        private bool _isRunning;
+        private volatile bool _isRunning;
         private List<object> _captures = new List<object>();
         private List<MethodInfo> _stopMethods = new List<MethodInfo>();
 

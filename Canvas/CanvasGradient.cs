@@ -6,11 +6,13 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
 {
     public enum GradientType { Linear, Radial }
 
-    public class CanvasGradient
+    public class CanvasGradient : IDisposable
     {
         private readonly GradientType _type;
         private readonly float _x0, _y0, _x1, _y1, _r0, _r1;
         private readonly List<(float offset, SKColor color)> _colorStops = new List<(float, SKColor)>();
+        private SKShader? _cachedShader;
+        private bool _disposed = false;
 
         public CanvasGradient(GradientType type, float x0, float y0, float x1, float y1, float r0 = 0, float r1 = 0)
         {
@@ -32,10 +34,18 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
                 (byte)Math.Clamp((int)a, 0, 255)
             );
             _colorStops.Add(((float)offset, color));
+
+            // MEMORY LEAK FIX: Invalidate cached shader when colors change
+            _cachedShader?.Dispose();
+            _cachedShader = null;
         }
 
         public SKShader Build()
         {
+            // Return cached shader if available
+            if (_cachedShader != null)
+                return _cachedShader;
+
             if (_colorStops.Count == 0)
             {
                 _colorStops.Add((0, SKColors.Black));
@@ -44,7 +54,6 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
 
             var colors = new SKColor[_colorStops.Count];
             var positions = new float[_colorStops.Count];
-
             for (int i = 0; i < _colorStops.Count; i++)
             {
                 positions[i] = _colorStops[i].offset;
@@ -53,7 +62,7 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
 
             if (_type == GradientType.Linear)
             {
-                return SKShader.CreateLinearGradient(
+                _cachedShader = SKShader.CreateLinearGradient(
                     new SKPoint(_x0, _y0),
                     new SKPoint(_x1, _y1),
                     colors,
@@ -63,7 +72,7 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
             }
             else
             {
-                return SKShader.CreateRadialGradient(
+                _cachedShader = SKShader.CreateRadialGradient(
                     new SKPoint(_x1, _y1),
                     _r1,
                     colors,
@@ -71,6 +80,28 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
                     SKShaderTileMode.Clamp
                 );
             }
+
+            return _cachedShader;
+        }
+
+        // MEMORY LEAK FIX: Implement IDisposable
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (_disposed) return;
+
+            if (disposing)
+            {
+                _cachedShader?.Dispose();
+                _cachedShader = null;
+            }
+
+            _disposed = true;
         }
     }
 }

@@ -314,40 +314,78 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.ViewModels
 
         private void ApplyScript()
         {
-            if (SelectedScript == null) return;
-
-            // Ensure script exists in originalScriptNames dictionary
-            if (!_originalScriptNames.ContainsKey(SelectedScript))
+            if (SelectedScript == null)
             {
-                _originalScriptNames[SelectedScript] = SelectedScript.ScriptName;
+                System.Diagnostics.Debug.WriteLine("[ApplyScript] SelectedScript is null");
+                return;
             }
 
-            string originalName = _originalScriptNames[SelectedScript];
-
-            if (originalName != SelectedScript.ScriptName)
+            if (_brush == null)
             {
-                ScriptsFolderManager.SaveScriptToFile(originalName, SelectedScript.JavaScriptCode);
-                ScriptsFolderManager.RenameScriptFile(originalName, SelectedScript.ScriptName);
-                _originalScriptNames[SelectedScript] = SelectedScript.ScriptName;
+                System.Diagnostics.Debug.WriteLine("[ApplyScript] brush is null");
+                return;
             }
 
-            ScriptsFolderManager.SaveScriptToFile(SelectedScript.ScriptName, SelectedScript.JavaScriptCode);
-
-            foreach (var script in Scripts)
+            if (string.IsNullOrEmpty(SelectedScript.ScriptName))
             {
-                script.IsEnabled = (script == SelectedScript);
+                System.Diagnostics.Debug.WriteLine("[ApplyScript] ScriptName is empty");
+                return;
             }
 
-            _brush.Properties.SaveScripts();
-            _brush.UpdateScript(SelectedScript);
+            try
+            {
+                // Ensure script exists in originalScriptNames dictionary
+                if (!_originalScriptNames.ContainsKey(SelectedScript))
+                {
+                    _originalScriptNames[SelectedScript] = SelectedScript.ScriptName;
+                }
 
-            // Notify all other brush instances
-            ScriptsFolderManager.NotifyScriptsChanged();
+                string originalName = _originalScriptNames[SelectedScript];
 
-            _savedEditorCode = _currentEditorCode;
-            _savedScriptName = SelectedScript.ScriptName;
-            HasUnsavedChanges = false;
+                // Handle script rename
+                if (originalName != SelectedScript.ScriptName)
+                {
+                    ScriptsFolderManager.SaveScriptToFile(originalName, SelectedScript.JavaScriptCode ?? string.Empty);
+                    ScriptsFolderManager.RenameScriptFile(originalName, SelectedScript.ScriptName);
+                    _originalScriptNames[SelectedScript] = SelectedScript.ScriptName;
+                }
+
+                // Save current script
+                ScriptsFolderManager.SaveScriptToFile(SelectedScript.ScriptName, SelectedScript.JavaScriptCode ?? string.Empty);
+
+                // Mark this script as enabled
+                foreach (var script in Scripts)
+                {
+                    script.IsEnabled = (script == SelectedScript);
+                }
+
+                // Save to properties
+                if (_brush.Properties != null)
+                {
+                    _brush.Properties.SaveScripts();
+                }
+
+                // Update brush with new script
+                _brush.UpdateScript(SelectedScript);
+
+                // Notify all other brush instances
+                ScriptsFolderManager.NotifyScriptsChanged();
+
+                // Update UI state
+                _savedEditorCode = _currentEditorCode;
+                _savedScriptName = SelectedScript.ScriptName;
+                HasUnsavedChanges = false;
+
+                System.Diagnostics.Debug.WriteLine($"[ApplyScript] Successfully applied: {SelectedScript.ScriptName}");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[ApplyScript] ERROR: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[ApplyScript] Stack trace: {ex.StackTrace}");
+                ErrorMessage = $"Failed to apply script: {ex.Message}";
+            }
         }
+
 
 
         private async void ExportScript()

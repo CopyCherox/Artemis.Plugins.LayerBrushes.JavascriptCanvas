@@ -1,131 +1,250 @@
-# JavaScript Canvas Plugin for Artemis
+# JavaScript Canvas Plugin for Artemis RGB
 
-Execute JavaScript to create custom LED effects with a Canvas-like API for Artemis RGB.
+Execute JavaScript to create custom LED effects with a Canvas-like API for [Artemis RGB](https://github.com/Artemis-RGB/Artemis).
 
 ## Overview
 
-This plugin adds a **JavaScript Canvas** layer brush to Artemis, allowing you to script LED effects using an API modeled after `CanvasRenderingContext2D` and rendered via SkiaSharp. Scripts are edited live inside Artemis with real-time previews and can be shared globally across profiles. 
+This plugin adds a **JavaScript Canvas** layer brush to Artemis, allowing you to script dynamic LED effects using an API modeled after HTML5 Canvas 2D and rendered via SkiaSharp. Create everything from simple color waves to complex audio-reactive visualizations with real-time JavaScript execution.
 
-## Features
+## ✨ Features
 
-- JavaScript-driven LED effects using a Canvas-style drawing context. 
-- Rich built-in editor with syntax highlighting, live preview, error display, and size presets. 
-- Global scripts that automatically appear in all new brush instances. 
-- Frame skip control to balance performance and smoothness. 
-- Default effect library: rainbow waves, breathing, moving gradients, fire, scan line, and more. 
+- **Javascript-driven LED effects** using a Canvas-style drawing context
+- **Audio reactivity** - Access real-time bass, midrange, treble, and frequency bands
+- **Time control** - Dynamically adjust animation speed and pause/resume effects
+- **Rich built-in editor** with syntax highlighting, live preview, and error display
+- **Live preview canvas** with playback controls (play/pause, speed adjustment)
+- **Script management** - Create, edit, rename, delete, import, and export scripts
+- **Global script sharing** - Scripts automatically sync across all layers
+- **Performance optimized** - Highly efficient rendering engine with configurable frame skip
+- **Performance monitoring** - View real-time metrics in Artemis debugger
+- **Default effect library** - Rainbow waves, breathing, plasma, fire, and more
 
-## Installation
+## 📦 Installation
 
-1. Build or download `Artemis.Plugins.LayerBrushes.JavascriptCanvas.dll`
-2. Copy the DLL (and its dependencies) into your Artemis plugins folder:
-   - Windows: typically under `%AppData%\Artemis\plugins`.  
-   - Linux/macOS: under your Artemis configuration/plugins directory.  
-3. Ensure `plugin.json` is placed alongside the DLL.
-4. Start Artemis; the **JavaScript Canvas** brush will be registered by the brush provider.
+### Option 1: Artemis Plugin Workshop (Recommended)
+1. Open Artemis
+2. Go to **Settings → Plugins → Workshop**
+3. Search for "Javascript Canvas"
+4. Click **Install**
 
-## Usage
+### Option 2: Manual Installation
+1. Download the latest release from the [Releases](https://github.com/CopyCherox/Artemis.Plugins.LayerBrushes.JavascriptCanvas/releases) page
+2. Extract the files to your Artemis plugins folder:
+   - **Windows**: `%ProgramData%\Artemis\Plugins\`
+   - **Linux/macOS**: `~/.config/Artemis/plugins/`
+3. Restart Artemis
 
-### Adding the JavaScript Canvas Brush
+## 🚀 Usage
 
-1. In Artemis, open your profile and add a new layer.  
-2. Choose the **JavaScript Canvas** brush.
-3. Open the brush configuration dialog to edit scripts and preview the canvas.
+### Adding the Brush
+1. Open your Artemis profile
+2. Add a new layer
+3. Select **JavaScript Canvas** as the layer brush under General
+4. Click the brush settings to open the editor
 
-### Editor & Preview
+### Editor Interface
 
 The configuration UI provides:
 
-- **Script list**: Choose among multiple scripts, add custom scripts, delete, and mark as *Global*. 
-- **Canvas size controls**: Width/height inputs and presets such as *Ultrawide*, *Standard*, *Compact*, and *Tall*.
-- **Frame skip**: “Update every N frames” to reduce script execution frequency for performance.
-- **Live preview**: A Skia-based canvas preview updated on a timer as `time` progresses.
-- **Error display**: Shows formatted JavaScript errors with line and column information.
+- **Script selector** - Choose from your scripts or create new ones
+- **Add/Delete** - Manage your script library
+- **Import/Export** - Share scripts with the community
+- **Live preview** - Real-time canvas visualization with playback controls
+- **Playback controls** - Play/pause, adjust speed (0.25x - 4x), reset time
+- **Canvas size controls** - Adjust dimensions with presets (Ultrawide, Standard, Compact, Tall)
+- **Frame skip** - Update every N frames to balance performance (default: 1 = 60 FPS)
+- **Error display** - Formatted JavaScript errors with line and column info
+- **Script name editor** - Rename scripts inline
+- **Unsaved changes indicator** - Visual feedback for modified scripts
 
-## Scripting API
+## 📚 Scripting API
 
 ### Global Variables
 
-Within JavaScript, the following globals are available: 
-
-- `width`: Canvas width in pixels.
-- `height`: Canvas height in pixels. 
-- `time`: Elapsed time in seconds, accumulated by the brush update. 
-
-### CanvasContext Methods
-
-The `ctx` object implements a subset of the HTML5 Canvas 2D context:
-
-**Shapes and clearing**  
-- `ctx.fillRect(x, y, w, h)`  
-- `ctx.strokeRect(x, y, w, h)`  
-- `ctx.clearRect(x, y, w, h)`  
-- `ctx.fillCircle(x, y, r)`  
-- `ctx.strokeCircle(x, y, r)`  
-- `ctx.clear(r, g, b)` – convenience full-canvas clear.
-
-**Paths**  
-- `ctx.beginPath()` / `ctx.closePath()` / `ctx.fill()` / `ctx.stroke()` / `ctx.clip()`  
-- `ctx.moveTo(x, y)` / `ctx.lineTo(x, y)` / `ctx.drawLine(x1, y1, x2, y2)`  
-- `ctx.arc(...)`, `ctx.arcTo(...)`, `ctx.rect(...)`, `ctx.ellipse(...)`  
-- `ctx.quadraticCurveTo(...)`, `ctx.bezierCurveTo(...)`  
-
-**Styles & colors**  
-- `ctx.fillStyle(r, g, b, a?)` and `ctx.strokeStyle(r, g, b, a?)`. 
-- `ctx.lineWidth(w)` / `ctx.lineCap(...)` / `ctx.lineJoin(...)` / `ctx.miterLimit(limit)`  
-- `ctx.globalAlpha(alpha)`  
-- `ctx.globalCompositeOperation(mode)` – supports modes like `source-over`, `multiply`, `screen`, `overlay`, `darken`, `lighten`, `difference`, `hue`, `color`, etc. 
-
-**Gradients**  
-- `let g = ctx.createLinearGradient(x0, y0, x1, y1)`  
-- `let g2 = ctx.createRadialGradient(x0, y0, r0, x1, y1, r1)`  
-- `g.addColorStop(offset, r, g, b, a?)`  
-- `ctx.fillStyleGradient(g)` / `ctx.strokeStyleGradient(g)`  
-
-**Transforms**  
-- `ctx.save()` / `ctx.restore()`  
-- `ctx.resetTransform()`  
-- `ctx.translate(x, y)` / `ctx.rotate(angle)` / `ctx.scale(x, y)`  
-- `ctx.transform(a, b, c, d, e, f)` / `ctx.setTransform(a, b, c, d, e, f)`  
-
-**Text**  
-- `ctx.font("24px Arial")`  
-- `ctx.textAlign("left" | "center" | "right" | "start" | "end")`  
-- `ctx.textBaseline("top" | "middle" | "alphabetic" | "bottom")`  
-- `ctx.fillText(text, x, y)` / `ctx.strokeText(text, x, y)`  
-- `ctx.measureText(text)` (returns metrics with `width`)  
-
-**Shadows**  
-- `ctx.shadowBlur(blur)`  
-- `ctx.shadowColor(r, g, b, a)`  
-- `ctx.shadowOffsetX(x)` / `ctx.shadowOffsetY(y)`  
-
-**Helpers**  
-- `ctx.hslToRgb(h, s, l)` (h,s,l in 0–1, returns `{ r, g, b }` with RGB 0–255). 
-- `ctx.rgbToHsl(r, g, b)` (RGB 0–255, returns `{ h, s, l }` in 0–1).
-
-### Example Script: Moving Rainbow Wave
+```javascript
+width          // Canvas width in pixels
+height         // Canvas height in pixels
+time           // Elapsed time in seconds
+ctx            // CanvasContext object (drawing API)
+audio          // AudioContext object (audio reactivity)
+timeControl    // TimeControl object (playback control)
 ```
-// Moving rainbow wave
-for (let x = 0; x < width; x++) {
-let hue = ((x / width) + time * 0.5) % 1.0;
-let rgb = ctx.hslToRgb(hue, 1.0, 0.5);
-ctx.fillStyle(rgb.r, rgb.g, rgb.b);
-ctx.fillRect(x, 0, 1, height);
+
+### Audio Reactivity
+
+```javascript
+audio.Bass        // 0-1: Bass frequency energy
+audio.Midrange    // 0-1: Mid frequency energy
+audio.Treble      // 0-1: High frequency energy
+audio.Volume      // 0-1: Overall volume level
+audio.GetBand(i)  // 0-1: Energy of frequency band i (0-31)
+```
+
+**Example:**
+```javascript
+let pulse = audio.Bass * 0.5 + 0.5;
+let hue = (time * 0.2 + audio.Treble * 0.3) % 1.0;
+```
+
+### Time Control
+
+```javascript
+timeControl.Speed      // Get/set animation speed (0.0 - 10.0)
+timeControl.IsPaused   // Get/set pause state
+timeControl.Current    // Get current time value
+timeControl.SetSpeed(speed)  // Set speed programmatically
+timeControl.Pause()    // Pause animation
+timeControl.Resume()   // Resume animation
+timeControl.Toggle()   // Toggle pause/resume
+```
+
+**Example:**
+```javascript
+// Make animation speed react to audio
+timeControl.Speed = 0.5 + audio.Volume * 2.5;
+```
+
+### CanvasContext (ctx) Methods
+
+#### Shapes & Clearing
+```javascript
+ctx.fillRect(x, y, w, h)
+ctx.strokeRect(x, y, w, h)
+ctx.clearRect(x, y, w, h)
+ctx.fillCircle(x, y, radius)
+ctx.strokeCircle(x, y, radius)
+ctx.clear(r, g, b)  // Full-canvas clear
+```
+
+#### Paths
+```javascript
+ctx.beginPath()
+ctx.closePath()
+ctx.moveTo(x, y)
+ctx.lineTo(x, y)
+ctx.arc(x, y, radius, startAngle, endAngle, counterclockwise)
+ctx.arcTo(x1, y1, x2, y2, radius)
+ctx.quadraticCurveTo(cpx, cpy, x, y)
+ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x, y)
+ctx.rect(x, y, w, h)
+ctx.ellipse(x, y, radiusX, radiusY, rotation, startAngle, endAngle, counterclockwise)
+ctx.fill()
+ctx.stroke()
+ctx.clip()
+```
+
+#### Styles & Colors
+```javascript
+ctx.fillStyle(r, g, b, a)     // Set fill color (RGB 0-255, A 0-1)
+ctx.strokeStyle(r, g, b, a)   // Set stroke color
+ctx.lineWidth(width)
+ctx.lineCap('butt' | 'round' | 'square')
+ctx.lineJoin('miter' | 'round' | 'bevel')
+ctx.miterLimit(limit)
+ctx.globalAlpha(alpha)        // 0-1
+ctx.globalCompositeOperation(mode)  // 'source-over', 'multiply', 'screen', etc.
+```
+
+#### Gradients
+```javascript
+let gradient = ctx.createLinearGradient(x0, y0, x1, y1);
+gradient.addColorStop(offset, r, g, b, a);
+ctx.fillStyleGradient(gradient);
+
+let radial = ctx.createRadialGradient(x0, y0, r0, x1, y1, r1);
+radial.addColorStop(0, 255, 0, 0);
+ctx.strokeStyleGradient(radial);
+```
+
+#### Transforms
+```javascript
+ctx.save()
+ctx.restore()
+ctx.translate(x, y)
+ctx.rotate(angle)
+ctx.scale(x, y)
+ctx.resetTransform()
+ctx.transform(a, b, c, d, e, f)
+ctx.setTransform(a, b, c, d, e, f)
+```
+
+#### Text
+```javascript
+ctx.font = '24px Arial';
+ctx.textAlign = 'left' | 'center' | 'right' | 'start' | 'end';
+ctx.textBaseline = 'top' | 'middle' | 'alphabetic' | 'bottom';
+ctx.fillText(text, x, y);
+ctx.strokeText(text, x, y);
+let metrics = ctx.measureText(text);  // Returns {width}
+```
+
+#### Shadows
+```javascript
+ctx.shadowBlur = 10;
+ctx.shadowColor(r, g, b, a);
+ctx.shadowOffsetX = 5;
+ctx.shadowOffsetY = 5;
+```
+
+#### Color Helpers
+```javascript
+let rgb = ctx.hslToRgb(h, s, l);  // h,s,l in 0-1, returns {r, g, b} in 0-255
+let hsl = ctx.rgbToHsl(r, g, b);  // r,g,b in 0-255, returns {h, s, l} in 0-1
+```
+
+## 🎨 Example Scripts
+
+### Audio-Reactive Plasma
+```javascript
+const scale = 0.015;
+const t = time * 0.5;
+const bass = audio.Bass * 2.0;
+
+for (let y = 0; y < height; y += 8) {
+  for (let x = 0; x < width; x += 8) {
+    const plasma = 
+      Math.sin((x + t * 50) * scale + bass) +
+      Math.cos((y + t * 30) * scale) +
+      Math.sin((x + y + t * 40) * scale * 0.5);
+
+    const hue = (plasma * 0.5 + 0.5 + audio.Volume * 0.4) % 1;
+    const rgb = ctx.hslToRgb(hue, 1.0, 0.5);
+
+    ctx.fillStyle(rgb.r, rgb.g, rgb.b);
+    ctx.fillRect(x, y, 8, 8);
+  }
 }
 ```
-### Example Script: Fire Effect
-```
-// Fire effect
-for (let x = 0; x < width; x++) {
-for (let y = 0; y < height; y++) {
-let yPos = y / height;
-let noise = Math.sin(x * 0.1 + time * 3) * 0.5 + 0.5;
-let intensity = (1 - yPos) * noise;
-let r = Math.floor(255 * intensity);
-let g = Math.floor(100 * intensity * 0.5);
-let b = 0;
-ctx.fillStyle(r, g, b);
-ctx.fillRect(x, y, 1, 1);
+
+### Moving Circles Grid
+```javascript
+const gridCols = 16;
+const gridRows = 8;
+const cellW = width / gridCols;
+const cellH = height / gridRows;
+
+for (let x = 0; x < gridCols; x++) {
+  for (let y = 0; y < gridRows; y++) {
+    let wave = Math.sin(time * 2.0 - x * 0.8 + y * 0.3) * 0.5 + 0.5;
+    let pulse = wave * 0.7 + audio.GetBand((x + y * gridCols) % 32) * 0.3;
+
+    let hue = (x / gridCols - time * 0.2 + y / gridRows * 0.3) % 1.0;
+    let rgb = ctx.hslToRgb(hue, 1.0, 0.5);
+
+    let size = (0.2 + pulse * 0.7) * Math.min(cellW, cellH);
+
+    ctx.fillStyle(rgb.r, rgb.g, rgb.b);
+    ctx.fillCircle(x * cellW + cellW/2, y * cellH + cellH/2, size);
+  }
 }
+```
+
+### Rainbow Wave
+```javascript
+for (let x = 0; x < width; x++) {
+  let hue = ((x / width) + time * 0.5) % 1.0;
+  let rgb = ctx.hslToRgb(hue, 1.0, 0.5);
+  ctx.fillStyle(rgb.r, rgb.g, rgb.b);
+  ctx.fillRect(x, 0, 1, height);
 }
 ```

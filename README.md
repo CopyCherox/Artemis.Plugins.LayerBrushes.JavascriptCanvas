@@ -8,39 +8,28 @@ This plugin adds a **JavaScript Canvas** layer brush to Artemis, allowing you to
 
 ## ✨ Features
 
-- **JavaScript-driven LED effects** using a Canvas-style drawing context
-- **Audio reactivity** - Access real-time bass, midrange, treble, and frequency bands
-- **Time control** - Dynamically adjust animation speed and pause/resume effects
-- **Rich built-in editor** with syntax highlighting, live preview, and error display
-- **Live preview canvas** with playback controls (play/pause, speed adjustment)
-- **Script management** - Create, edit, rename, delete, import, and export scripts
-- **Global script sharing** - Scripts automatically sync across all layers
-- **Performance optimized** - Highly efficient rendering engine with configurable frame skip
-- **Performance monitoring** - View real-time metrics in Artemis debugger
-- **Default effect library** - Rainbow waves, breathing, plasma, fire, and more
+- JavaScript-driven LED effects using a Canvas-style drawing context. 
+- Rich built-in editor with syntax highlighting, live preview, error display, and size presets. 
+- Global scripts that automatically appear in all new brush instances. 
+- Frame skip control to balance performance and smoothness. 
+- Default effect library: rainbow waves, breathing, moving gradients, fire, scan line, and more. 
 
 ## 📦 Installation
 
-### Option 1: Artemis Plugin Workshop (Recommended)
-1. Open Artemis
-2. Go to **Settings → Plugins → Workshop**
-3. Search for "JavaScript Canvas"
-4. Click **Install**
+1. Build or download `Artemis.Plugins.LayerBrushes.JavascriptCanvas.dll`
+2. Copy the DLL (and its dependencies) into your Artemis plugins folder:
+   - Windows: typically under `%AppData%\Artemis\plugins`.  
+   - Linux/macOS: under your Artemis configuration/plugins directory.  
+3. Ensure `plugin.json` is placed alongside the DLL.
+4. Start Artemis; the **JavaScript Canvas** brush will be registered by the brush provider.
 
-### Option 2: Manual Installation
-1. Download the latest release from the [Releases](https://github.com/yourusername/yourrepo/releases) page
-2. Extract the files to your Artemis plugins folder:
-   - **Windows**: `%ProgramData%\Artemis\Plugins\`
-   - **Linux/macOS**: `~/.config/Artemis/plugins/`
-3. Restart Artemis
+## Usage
 
 ## 🚀 Usage
 
-### Adding the Brush
-1. Open your Artemis profile
-2. Add a new layer
-3. Select **JavaScript Canvas** as the layer brush
-4. Click the brush settings to open the editor
+1. In Artemis, open your profile and add a new layer.  
+2. Choose the **JavaScript Canvas** brush.
+3. Open the brush configuration dialog to edit scripts and preview the canvas.
 
 ### Editor Interface
 
@@ -61,151 +50,29 @@ The configuration UI provides:
 
 ### Global Variables
 
-```javascript
-width          // Canvas width in pixels
-height         // Canvas height in pixels
-time           // Elapsed time in seconds
-ctx            // CanvasContext object (drawing API)
-audio          // AudioContext object (audio reactivity)
-timeControl    // TimeControl object (playback control)
-```
+Within JavaScript, the following globals are available: 
 
-### Audio Reactivity
+- `width`: Canvas width in pixels.
+- `height`: Canvas height in pixels. 
+- `time`: Elapsed time in seconds, accumulated by the brush update. 
 
-```javascript
-audio.Bass        // 0-1: Bass frequency energy
-audio.Midrange    // 0-1: Mid frequency energy
-audio.Treble      // 0-1: High frequency energy
-audio.Volume      // 0-1: Overall volume level
-audio.GetBand(i)  // 0-1: Energy of frequency band i (0-31)
-```
+### CanvasContext Methods
 
-**Example:**
-```javascript
-let pulse = audio.Bass * 0.5 + 0.5;
-let hue = (time * 0.2 + audio.Treble * 0.3) % 1.0;
-```
+The `ctx` object implements a subset of the HTML5 Canvas 2D context:
 
-### Time Control
+**Shapes and clearing**  
+- `ctx.fillRect(x, y, w, h)`  
+- `ctx.strokeRect(x, y, w, h)`  
+- `ctx.clearRect(x, y, w, h)`  
+- `ctx.fillCircle(x, y, r)`  
+- `ctx.strokeCircle(x, y, r)`  
+- `ctx.clear(r, g, b)` – convenience full-canvas clear.
 
-```javascript
-timeControl.Speed      // Get/set animation speed (0.0 - 10.0)
-timeControl.IsPaused   // Get/set pause state
-timeControl.Current    // Get current time value
-timeControl.SetSpeed(speed)  // Set speed programmatically
-timeControl.Pause()    // Pause animation
-timeControl.Resume()   // Resume animation
-timeControl.Toggle()   // Toggle pause/resume
-```
-
-**Example:**
-```javascript
-// Make animation speed react to audio
-timeControl.Speed = 0.5 + audio.Volume * 2.5;
-```
-
-### CanvasContext (ctx) Methods
-
-#### Shapes & Clearing
-```javascript
-ctx.fillRect(x, y, w, h)
-ctx.strokeRect(x, y, w, h)
-ctx.clearRect(x, y, w, h)
-ctx.fillCircle(x, y, radius)
-ctx.strokeCircle(x, y, radius)
-ctx.clear(r, g, b)  // Full-canvas clear
-```
-
-#### Paths
-```javascript
-ctx.beginPath()
-ctx.closePath()
-ctx.moveTo(x, y)
-ctx.lineTo(x, y)
-ctx.arc(x, y, radius, startAngle, endAngle, counterclockwise)
-ctx.arcTo(x1, y1, x2, y2, radius)
-ctx.quadraticCurveTo(cpx, cpy, x, y)
-ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x, y)
-ctx.rect(x, y, w, h)
-ctx.ellipse(x, y, radiusX, radiusY, rotation, startAngle, endAngle, counterclockwise)
-ctx.fill()
-ctx.stroke()
-ctx.clip()
-```
-
-#### Styles & Colors
-```javascript
-ctx.fillStyle(r, g, b, a)     // Set fill color (RGB 0-255, A 0-1)
-ctx.strokeStyle(r, g, b, a)   // Set stroke color
-ctx.lineWidth(width)
-ctx.lineCap('butt' | 'round' | 'square')
-ctx.lineJoin('miter' | 'round' | 'bevel')
-ctx.miterLimit(limit)
-ctx.globalAlpha(alpha)        // 0-1
-ctx.globalCompositeOperation(mode)  // 'source-over', 'multiply', 'screen', etc.
-```
-
-#### Gradients
-```javascript
-let gradient = ctx.createLinearGradient(x0, y0, x1, y1);
-gradient.addColorStop(offset, r, g, b, a);
-ctx.fillStyleGradient(gradient);
-
-let radial = ctx.createRadialGradient(x0, y0, r0, x1, y1, r1);
-radial.addColorStop(0, 255, 0, 0);
-ctx.strokeStyleGradient(radial);
-```
-
-#### Transforms
-```javascript
-ctx.save()
-ctx.restore()
-ctx.translate(x, y)
-ctx.rotate(angle)
-ctx.scale(x, y)
-ctx.resetTransform()
-ctx.transform(a, b, c, d, e, f)
-ctx.setTransform(a, b, c, d, e, f)
-```
-
-#### Text
-```javascript
-ctx.font = '24px Arial';
-ctx.textAlign = 'left' | 'center' | 'right' | 'start' | 'end';
-ctx.textBaseline = 'top' | 'middle' | 'alphabetic' | 'bottom';
-ctx.fillText(text, x, y);
-ctx.strokeText(text, x, y);
-let metrics = ctx.measureText(text);  // Returns {width}
-```
-
-#### Shadows
-```javascript
-ctx.shadowBlur = 10;
-ctx.shadowColor(r, g, b, a);
-ctx.shadowOffsetX = 5;
-ctx.shadowOffsetY = 5;
-```
-
-#### Color Helpers
-```javascript
-let rgb = ctx.hslToRgb(h, s, l);  // h,s,l in 0-1, returns {r, g, b} in 0-255
-let hsl = ctx.rgbToHsl(r, g, b);  // r,g,b in 0-255, returns {h, s, l} in 0-1
-```
-
-## 🎨 Example Scripts
-
-### Audio-Reactive Plasma
-```javascript
-const scale = 0.015;
-const t = time * 0.5;
-const bass = audio.Bass * 2.0;
-
-for (let y = 0; y < height; y += 8) {
-  for (let x = 0; x < width; x += 8) {
-    const plasma = 
-      Math.sin((x + t * 50) * scale + bass) +
-      Math.cos((y + t * 30) * scale) +
-      Math.sin((x + y + t * 40) * scale * 0.5);
+**Paths**  
+- `ctx.beginPath()` / `ctx.closePath()` / `ctx.fill()` / `ctx.stroke()` / `ctx.clip()`  
+- `ctx.moveTo(x, y)` / `ctx.lineTo(x, y)` / `ctx.drawLine(x1, y1, x2, y2)`  
+- `ctx.arc(...)`, `ctx.arcTo(...)`, `ctx.rect(...)`, `ctx.ellipse(...)`  
+- `ctx.quadraticCurveTo(...)`, `ctx.bezierCurveTo(...)`  
 
     const hue = (plasma * 0.5 + 0.5 + audio.Volume * 0.4) % 1;
     const rgb = ctx.hslToRgb(hue, 1.0, 0.5);
@@ -248,77 +115,19 @@ for (let x = 0; x < width; x++) {
   ctx.fillRect(x, 0, 1, height);
 }
 ```
-
-## ⚡ Performance
-
-### Optimizations Applied
-- **Single-pass LED bounds calculation** - 4x faster than original LINQ queries
-- **Cached reciprocals** - Division replaced with multiplication for 20-30% speed gain
-- **Minimized lock contention** - Reduced thread blocking by ~50%
-- **Bit-shift optimizations** - Faster pixel indexing
-- **Pre-calculated constants** - Moved invariant calculations outside loops
-
-### Performance Monitoring
-View real-time performance metrics in **Artemis Debugger → Performance Tab**:
-- Update timing (min/max/average)
-- 95th percentile latency
-- Number of calls
-- Active brush count
-
-### Frame Skip Configuration
-Adjust `Frame Skip` to balance smoothness vs. performance:
-- **1** = 60 updates/sec (smooth, default)
-- **2** = 30 updates/sec (balanced)
-- **3+** = Lower update rate (better performance)
-
-## 🛠️ Development
-
-### Building from Source
-```bash
-git clone https://github.com/yourusername/yourrepo.git
-cd Artemis.Plugins.LayerBrushes.JavascriptCanvas
-dotnet build
+### Example Script: Fire Effect
 ```
-
-### Project Structure
+// Fire effect
+for (let x = 0; x < width; x++) {
+for (let y = 0; y < height; y++) {
+let yPos = y / height;
+let noise = Math.sin(x * 0.1 + time * 3) * 0.5 + 0.5;
+let intensity = (1 - yPos) * noise;
+let r = Math.floor(255 * intensity);
+let g = Math.floor(100 * intensity * 0.5);
+let b = 0;
+ctx.fillStyle(r, g, b);
+ctx.fillRect(x, y, 1, 1);
+}
+}
 ```
-├── CanvasBrush/
-│   ├── JavascriptCanvasBrush.cs          # Main brush implementation
-│   ├── JavascriptCanvasModule.cs         # Performance monitoring module
-│   └── JavascriptCanvasBrushProperties.cs # Brush properties
-├── ScriptAPI/
-│   ├── CanvasContext.*.cs                # Canvas 2D API implementation
-│   ├── AudioContext.cs                   # Audio reactivity API
-│   └── TimeControl.cs                    # Time control API
-├── Services/
-│   ├── JavascriptExecutor.cs             # Jint JavaScript engine wrapper
-│   ├── AudioReactivityService.cs         # Real-time audio analysis
-│   ├── ScriptsFolderManager.cs           # Script persistence
-│   └── PreviewRenderingService.cs        # Live preview engine
-└── ViewModels/ & Views/                  # Avalonia UI components
-```
-
-## 📝 License
-
-MIT License - See LICENSE file for details
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## 🙏 Credits
-
-- Built for [Artemis RGB](https://github.com/Artemis-RGB/Artemis)
-- Uses [Jint](https://github.com/sebastienros/jint) for JavaScript execution
-- Powered by [SkiaSharp](https://github.com/mono/SkiaSharp) for high-performance rendering
-- Audio analysis via [CSCore](https://github.com/filoe/cscore)
-
-## 📮 Support
-
-- **Issues**: [GitHub Issues](https://github.com/yourusername/yourrepo/issues)
-- **Discord**: Join the [Artemis Discord](https://discord.gg/artemis)
-- **Documentation**: [Wiki](https://github.com/yourusername/yourrepo/wiki)
-
----
-
-**Made with ❤️ for the Artemis RGB community**

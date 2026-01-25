@@ -1,7 +1,7 @@
 {
   "Guid": "FDA4F3A9-8D80-46AE-A8E7-938201AD6222",
   "Name": "Javascript Renderer",
-  "Description": "Execute JavaScript to create custom LED effects with canvas API",
+  "Description": "Execute Javascript to create custom LED effects with canvas API",
   "Author": "Cherox",
   "Website": "",
   "Repository": "",

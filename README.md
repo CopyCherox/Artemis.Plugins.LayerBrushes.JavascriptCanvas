@@ -1,10 +1,10 @@
-# JavaScript Canvas Plugin for Artemis RGB
+# Javascript Canvas Plugin for Artemis RGB
 
-Execute JavaScript to create custom LED effects with a Canvas-like API for [Artemis RGB](https://github.com/Artemis-RGB/Artemis).
+Execute Javascript to create custom LED effects with a Canvas-like API for [Artemis RGB](https://github.com/Artemis-RGB/Artemis).
 
 ## Overview
 
-This plugin adds a **JavaScript Canvas** layer brush to Artemis, allowing you to script dynamic LED effects using an API modeled after HTML5 Canvas 2D and rendered via SkiaSharp. Create everything from simple color waves to complex audio-reactive visualizations with real-time JavaScript execution.
+This plugin adds a **Javascript Canvas** layer brush to Artemis, allowing you to script dynamic LED effects using an API modeled after HTML5 Canvas 2D and rendered via SkiaSharp. Create everything from simple color waves to complex audio-reactive visualizations with real-time JavaScript execution.
 
 ## ✨ Features
 
@@ -24,7 +24,7 @@ This plugin adds a **JavaScript Canvas** layer brush to Artemis, allowing you to
 ### Option 1: Artemis Plugin Workshop (Recommended)
 1. Open Artemis
 2. Go to **Settings → Plugins → Workshop**
-3. Search for "JavaScript Canvas"
+3. Search for "Javascript Canvas"
 4. Click **Install**
 
 ### Option 2: Manual Installation
@@ -39,7 +39,7 @@ This plugin adds a **JavaScript Canvas** layer brush to Artemis, allowing you to
 ### Adding the Brush
 1. Open your Artemis profile
 2. Add a new layer
-3. Select **JavaScript Canvas** as the layer brush under General
+3. Select **Javascript Canvas** as the layer brush under General
 4. Click the brush settings to open the editor
 
 ### Editor Interface
@@ -53,7 +53,7 @@ The configuration UI provides:
 - **Playback controls** - Play/pause, adjust speed (0.25x - 4x), reset time
 - **Canvas size controls** - Adjust dimensions with presets (Ultrawide, Standard, Compact, Tall)
 - **Frame skip** - Update every N frames to balance performance (default: 1 = 60 FPS)
-- **Error display** - Formatted JavaScript errors with line and column info
+- **Error display** - Formatted Javascript errors with line and column info
 - **Script name editor** - Rename scripts inline
 - **Unsaved changes indicator** - Visual feedback for modified scripts
 

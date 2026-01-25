@@ -9,8 +9,8 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
         {
             // Just register the brush - Artemis will look for the ViewModel/View automatically
             RegisterLayerBrushDescriptor<JavascriptCanvasBrush>(
-                "JavaScript Canvas",
-                "Execute JavaScript for LED effects",
+                "Javascript Canvas",
+                "Execute Javascript for LED effects",
                 "Code"
             );
         }

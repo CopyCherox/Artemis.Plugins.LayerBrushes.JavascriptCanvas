@@ -42,7 +42,7 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.Views.Controls
 
             titleBar.Children.Add(new TextBlock
             {
-                Text = "JavaScript Canvas Script Editor",
+                Text = "Javascript Canvas Script Editor",
                 FontSize = 20,
                 FontWeight = FontWeight.Bold,
                 VerticalAlignment = VerticalAlignment.Center

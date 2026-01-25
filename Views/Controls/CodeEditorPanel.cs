@@ -22,7 +22,7 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.Views.Controls
             // Title
             var editorTitle = new TextBlock
             {
-                Text = "JavaScript Code",
+                Text = "Javascript Code",
                 FontSize = 14,
                 FontWeight = FontWeight.Bold,
                 Margin = new Thickness(0, 0, 0, 10)

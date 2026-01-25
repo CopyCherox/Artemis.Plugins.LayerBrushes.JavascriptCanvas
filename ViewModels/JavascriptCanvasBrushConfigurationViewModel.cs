@@ -316,6 +316,12 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.ViewModels
         {
             if (SelectedScript == null) return;
 
+            // Ensure script exists in originalScriptNames dictionary
+            if (!_originalScriptNames.ContainsKey(SelectedScript))
+            {
+                _originalScriptNames[SelectedScript] = SelectedScript.ScriptName;
+            }
+
             string originalName = _originalScriptNames[SelectedScript];
 
             if (originalName != SelectedScript.ScriptName)
@@ -328,18 +334,21 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.ViewModels
             ScriptsFolderManager.SaveScriptToFile(SelectedScript.ScriptName, SelectedScript.JavaScriptCode);
 
             foreach (var script in Scripts)
+            {
                 script.IsEnabled = (script == SelectedScript);
+            }
 
             _brush.Properties.SaveScripts();
-
             _brush.UpdateScript(SelectedScript);
 
+            // Notify all other brush instances
             ScriptsFolderManager.NotifyScriptsChanged();
 
             _savedEditorCode = _currentEditorCode;
             _savedScriptName = SelectedScript.ScriptName;
             HasUnsavedChanges = false;
         }
+
 
         private async void ExportScript()
         {

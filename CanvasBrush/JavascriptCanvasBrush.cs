@@ -51,6 +51,9 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
         private JavascriptScriptModel? _currentScript;
         private bool _scriptDirty = true;
 
+        private double _timeScale = 1.0;
+        private bool _timePaused = false;
+
         public override void EnableLayerBrush()
         {
             ConfigurationDialog = new LayerBrushConfigurationDialog<JavascriptCanvasBrushConfigurationViewModel>(1300, 800);
@@ -228,9 +231,10 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
                         canvasHeight,
                         _time,
                         audioToUse,
-                        null,
-                        null,
-                        null
+                        // ✅ Add TimeControl callbacks
+                        (scale) => _timeScale = scale,
+                        (paused) => _timePaused = paused,
+                        () => _time
                     );
 
                     oldBitmap?.Dispose();

@@ -1,7 +1,9 @@
 ﻿using Artemis.Core.LayerBrushes;
 using Artemis.Plugins.LayerBrushes.JavascriptCanvas.Services;
 using Artemis.UI.Shared.LayerBrushes;
+using Avalonia.Media;
 using ReactiveUI;
+using RGB.NET.Core;
 using SkiaSharp;
 using System;
 using System.Collections.Generic;
@@ -243,13 +245,52 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.ViewModels
         private void AddScript()
         {
             var newScript = _scriptManager.AddNewScript();
-            _originalScriptNames[newScript] = newScript.ScriptName;
-            newScript.PropertyChanged += Script_PropertyChanged;
 
-            // FIX: Direct assignment since we removed NotifyScriptsChanged
-            // The object reference is now valid and in the collection
-            SelectedScript = newScript;
+            // Verify the script is in the Scripts collection
+            if (!Scripts.Contains(newScript))
+            {
+                Scripts.Add(newScript);
+            }
+
+            _originalScriptNames[newScript] = newScript.ScriptName;
+            newScript.PropertyChanged += ScriptPropertyChanged;
+
+            // Save immediately
+            ScriptsFolderManager.SaveScriptToFile(newScript.ScriptName, newScript.JavaScriptCode);
+
+            // Sort scripts alphabetically
+            var sortedScripts = Scripts.OrderBy(s => s.ScriptName).ToList();
+            Scripts.Clear();
+            foreach (var script in sortedScripts)
+            {
+                Scripts.Add(script);
+            }
+
+            // Force UI refresh
+            this.RaisePropertyChanged(nameof(Scripts));
+
+            // Select with dispatcher
+            Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
+            {
+                await System.Threading.Tasks.Task.Delay(50);
+                SelectedScript = newScript;
+            });
         }
+
+
+        private void ScriptPropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (sender is JavascriptScriptModel script && e.PropertyName == nameof(JavascriptScriptModel.ScriptName))
+            {
+                if (SelectedScript == script)
+                {
+                    HasUnsavedChanges = _currentEditorCode != _savedEditorCode ||
+                                        (SelectedScript != null && SelectedScript.ScriptName != _savedScriptName);
+                }
+            }
+        }
+
+
 
         private async void DeleteScript()
         {
@@ -290,6 +331,10 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.ViewModels
                 script.IsEnabled = (script == SelectedScript);
 
             _brush.Properties.SaveScripts();
+
+            _brush.UpdateScript(SelectedScript);
+
+            ScriptsFolderManager.NotifyScriptsChanged();
 
             _savedEditorCode = _currentEditorCode;
             _savedScriptName = SelectedScript.ScriptName;
@@ -348,25 +393,33 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.ViewModels
         {
             var previouslySelectedName = SelectedScript?.ScriptName;
 
+            // Unsubscribe from old scripts
             foreach (var script in Scripts)
             {
-                script.PropertyChanged -= Script_PropertyChanged;
+                script.PropertyChanged -= ScriptPropertyChanged;
             }
 
-            Scripts = _brush.Properties.Scripts;
+            // Load and sort scripts
+            var newScripts = _brush.Properties.Scripts.OrderBy(s => s.ScriptName).ToList();
 
-            _originalScriptNames.Clear();
-            foreach (var script in Scripts)
+            Scripts.Clear();
+            foreach (var script in newScripts)
             {
+                Scripts.Add(script);
                 _originalScriptNames[script] = script.ScriptName;
-                script.PropertyChanged += Script_PropertyChanged;
+                script.PropertyChanged += ScriptPropertyChanged;
             }
 
             this.RaisePropertyChanged(nameof(Scripts));
 
+            // Restore selection
             if (!string.IsNullOrEmpty(previouslySelectedName))
+            {
                 SelectedScript = Scripts.FirstOrDefault(s => s.ScriptName == previouslySelectedName);
+            }
         }
+
+
 
         private Avalonia.Controls.Window? GetMainWindow()
         {

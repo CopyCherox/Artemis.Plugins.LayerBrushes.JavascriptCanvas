@@ -7,7 +7,7 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
     [PluginFeature(Name = "Javascript Canvas Performance")]
     public class JavascriptCanvasModule : Module<JavascriptCanvasDataModel>
     {
-        public override List<IModuleActivationRequirement> ActivationRequirements => null;
+        public override List<IModuleActivationRequirement> ActivationRequirements => new();
 
         public override void Enable()
         {

@@ -211,7 +211,6 @@ Example - Rainbow:
 ");
 
             textBlock.Inlines.Add(CreateRun("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n", "#7F8C8D"));
-            textBlock.Inlines.Add(CreateRun("💡 Tip: Use 'state' object for animations!", "#FFD700"));
         }
 
         private void AddSection(SelectableTextBlock textBlock, string title, string content)

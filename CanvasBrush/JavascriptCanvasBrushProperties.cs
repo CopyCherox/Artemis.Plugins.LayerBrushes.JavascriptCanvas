@@ -1,5 +1,5 @@
 ﻿using Artemis.Core;
-using Artemis.Plugins.LayerBrushes.JavascriptCanvas;
+using Artemis.Plugins.LayerBrushes.JavascriptCanvas.Services;
 using System;
 using System.Collections.ObjectModel;
 using System.Linq;

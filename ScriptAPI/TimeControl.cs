@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
+namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.ScriptAPI
 {
     public class TimeControl
     {

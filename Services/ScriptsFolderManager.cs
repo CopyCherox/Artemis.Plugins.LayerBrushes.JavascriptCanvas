@@ -1,12 +1,11 @@
-﻿using Artemis.Plugins.LayerBrushes.JavascriptCanvas;
-using System;
+﻿using System;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text.Json;
 
-namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
+namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.Services
 {
     public static class ScriptsFolderManager
     {

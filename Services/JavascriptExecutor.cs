@@ -1,9 +1,10 @@
+using Artemis.Plugins.LayerBrushes.JavascriptCanvas.ScriptAPI;
 using Jint;
 using SkiaSharp;
 using System;
 using System.Diagnostics;
 
-namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
+namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.Services
 {
     public class JavaScriptExecutor : IDisposable
     {
@@ -46,7 +47,7 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
         }
 
         public SKBitmap ExecuteScriptOnCanvas(string userCode, int width, int height, double time,
-            Services.AudioReactivityService? audioService = null,
+            AudioReactivityService? audioService = null,
             Action<double>? setTimeScale = null,
             Action<bool>? setPaused = null,
             Func<double>? getTime = null)

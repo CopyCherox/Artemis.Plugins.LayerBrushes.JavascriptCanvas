@@ -1,5 +1,6 @@
 ﻿using Artemis.Core;
 using Artemis.Core.LayerBrushes;
+using Artemis.Plugins.LayerBrushes.JavascriptCanvas.Services;
 using Artemis.Plugins.LayerBrushes.JavascriptCanvas.ViewModels;
 using Artemis.UI.Shared.LayerBrushes;
 using SkiaSharp;

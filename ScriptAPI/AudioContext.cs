@@ -1,7 +1,7 @@
 ﻿using Artemis.Plugins.LayerBrushes.JavascriptCanvas.Services;
 using System;
 
-namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas
+namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.ScriptAPI
 {
     public class AudioContext
     {

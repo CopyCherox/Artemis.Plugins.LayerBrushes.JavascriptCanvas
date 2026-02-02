@@ -1,0 +1,4 @@
+{
+  "ScriptName": "Waving Diamond Grid",
+  "JavaScriptCode": "// =========================\n// CONFIG\n// =========================\nconst CELL = 20;\nconst WAVE_SPEED = 2.0;\nconst WAVE_FREQ = 0.15;\n\n// =========================\n// RENDER\nctx.clear(0, 0, 0);\n\nfor (let x = 0; x \u003C width; x \u002B= CELL) {\n    for (let y = 0; y \u003C height; y \u002B= CELL) {\n\n        let wave = Math.sin((x\u002By) * WAVE_FREQ \u002B time * WAVE_SPEED);\n        let intensity = (wave \u002B 1)/2;\n\n        let hue = ((x\u002By)/ (width\u002Bheight) \u002B time*0.05) % 1;\n        let rgb = ctx.hslToRgb(hue, 1, 0.5);\n\n        ctx.fillStyle(rgb.r*intensity, rgb.g*intensity, rgb.b*intensity);\n\n        ctx.save();\n        ctx.translate(x \u002B CELL/2, y \u002B CELL/2);\n        ctx.rotate(Math.PI/4);\n        ctx.fillRect(-CELL/2, -CELL/2, CELL, CELL);\n        ctx.restore();\n    }\n}"
+}

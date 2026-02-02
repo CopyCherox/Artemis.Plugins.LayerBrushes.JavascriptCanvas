@@ -1,15 +1,15 @@
 {
-  "Guid": "FDA4F3A9-8D80-46AE-A8E7-938201AD6222",
+  "Guid": "4be96aa8-3f85-4451-a6b8-5030b64a6b2e",
   "Name": "Javascript Renderer",
-  "Description": "Execute Javascript to create custom LED effects with canvas API",
+  "Description": "Create custom LED effects with live JavaScript editing",
   "Author": "Cherox",
   "Website": "",
   "Repository": "",
   "Icon": "Code",
-  "Version": "1.0.0.0",
+  "Version": "1.0.0.3",
   "Main": "Artemis.Plugins.LayerBrushes.JavascriptCanvas.dll",
   "AutoEnableProperties": true,
   "RequiresAdmin": false,
   "Platforms": "Windows,Linux,OSX",
-  "Api": "1.2025.1223.2"
+  "Api": "1.2026.0101.2"
 }

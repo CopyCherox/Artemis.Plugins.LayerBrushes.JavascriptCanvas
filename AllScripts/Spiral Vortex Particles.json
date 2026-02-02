@@ -1,0 +1,4 @@
+{
+  "ScriptName": "Spiral Vortex Particles",
+  "JavaScriptCode": "// =========================\n// CONFIG\n// =========================\nconst STEP = 6;\nconst SPIRALS = 4;\nconst SPEED = 0.8;\n\n// =========================\nctx.clear(0,0,0);\n\nlet cx=width/2, cy=height/2;\n\nfor(let x=0;x\u003Cwidth;x\u002B=STEP){\n    for(let y=0;y\u003Cheight;y\u002B=STEP){\n\n        let dx=x-cx, dy=y-cy;\n        let dist=Math.sqrt(dx*dx\u002Bdy*dy);\n        let angle=Math.atan2(dy,dx) \u002B time*SPEED;\n        let value=(Math.sin(dist*0.05*SPIRALS - angle*SPIRALS)\u002B1)/2;\n\n        ctx.fillStyle(255*value, 100*value, 255*(1-value));\n        ctx.fillRect(x,y,STEP,STEP);\n    }\n}"
+}

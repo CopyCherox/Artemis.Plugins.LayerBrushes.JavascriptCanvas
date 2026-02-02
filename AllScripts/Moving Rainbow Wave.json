@@ -1,0 +1,4 @@
+{
+  "ScriptName": "Moving Rainbow Wave",
+  "JavaScriptCode": "// Moving rainbow wave\r\nfor (let x = 0; x \u003C width; x\u002B\u002B) {\r\n    let hue = (x / width \u002B time * 0.5) % 1.0;\r\n    let rgb = ctx.hslToRgb(hue, 1.0, 0.5);\r\n    ctx.fillStyle(rgb.r, rgb.g, rgb.b);\r\n    ctx.fillRect(x, 0, 1, height);\r\n}"
+}

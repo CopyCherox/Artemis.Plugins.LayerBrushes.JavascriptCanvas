@@ -1,0 +1,4 @@
+{
+  "ScriptName": "Retro Scanlines",
+  "JavaScriptCode": "// =========================\r\n// CONFIG\r\n// =========================\r\nconst LINE_HEIGHT = 4;\r\nconst SCAN_SPEED = 70;\r\n\r\n// =========================\r\n// RENDER\r\n// =========================\r\nctx.clear(0, 0, 0);\r\n\r\nfor (let y = 0; y \u003C height; y \u002B= LINE_HEIGHT) {\r\n\r\n    let glow = Math.sin((y \u002B time * SCAN_SPEED) * 0.05) * 0.5 \u002B 0.5;\r\n\r\n    ctx.fillStyle(\r\n        0,\r\n        255 * glow,\r\n        120 * glow\r\n    );\r\n\r\n    ctx.fillRect(0, y, width, LINE_HEIGHT - 1);\r\n}"
+}

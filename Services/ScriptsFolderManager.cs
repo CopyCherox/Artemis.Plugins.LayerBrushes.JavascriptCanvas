@@ -16,36 +16,59 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.Services
 
         static ScriptsFolderManager()
         {
+            string? pluginDirectory = null;
+
+            // Try assembly location first
             var assemblyLocation = Assembly.GetExecutingAssembly().Location;
-            var pluginDirectory = Path.GetDirectoryName(assemblyLocation);
-
-            if (string.IsNullOrEmpty(pluginDirectory) || !pluginDirectory.Contains("Plugins"))
+            if (!string.IsNullOrEmpty(assemblyLocation))
             {
-                var programData = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
-                var pluginsRoot = Path.Combine(programData, "Artemis", "Plugins");
+                pluginDirectory = Path.GetDirectoryName(assemblyLocation);
+            }
 
-                if (Directory.Exists(pluginsRoot))
+            // Fallback: Search for folder containing our DLL
+            if (string.IsNullOrEmpty(pluginDirectory))
+            {
+                var dllName = "Artemis.Plugins.LayerBrushes.JavascriptCanvas.dll";
+                var programData = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
+                var artemisRoot = Path.Combine(programData, "Artemis");
+
+                var searchPaths = new[]
                 {
-                    var pluginFolders = Directory.GetDirectories(pluginsRoot, "Artemis.Plugins.LayerBrushes.JavascriptCanvas*");
-                    if (pluginFolders.Length > 0)
+            Path.Combine(artemisRoot, "Plugins"),
+            Path.Combine(artemisRoot, "workshop")
+        };
+
+                foreach (var searchPath in searchPaths)
+                {
+                    if (Directory.Exists(searchPath))
                     {
-                        pluginDirectory = pluginFolders[0];
-                    }
-                    else
-                    {
-                        pluginDirectory = Path.Combine(pluginsRoot, "Artemis.Plugins.LayerBrushes.JavascriptCanvas");
+                        // Recursively search for our DLL
+                        var foundFiles = Directory.GetFiles(searchPath, dllName, SearchOption.AllDirectories);
+                        if (foundFiles.Length > 0)
+                        {
+                            // Use the directory of the most recently modified DLL
+                            var mostRecent = foundFiles.OrderByDescending(File.GetLastWriteTime).First();
+                            pluginDirectory = Path.GetDirectoryName(mostRecent);
+                            break;
+                        }
                     }
                 }
-                else
-                {
-                    pluginDirectory = Path.Combine(programData, "Artemis", "Plugins", "JavascriptCanvas");
-                }
+            }
+
+            if (string.IsNullOrEmpty(pluginDirectory))
+            {
+                throw new InvalidOperationException(
+                    $"Could not determine plugin directory. Assembly.Location is empty and DLL not found in Artemis folders.");
             }
 
             ScriptsFolder = Path.Combine(pluginDirectory, "Scripts");
             MetadataFolder = Path.Combine(pluginDirectory, "Metadata");
+
             EnsureScriptsFolderExists();
         }
+
+
+
 
         public static string GetScriptsFolder() => ScriptsFolder;
 
@@ -61,7 +84,6 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.Services
                 if (!Directory.Exists(ScriptsFolder))
                 {
                     Directory.CreateDirectory(ScriptsFolder);
-                    CreateDefaultScripts();
                 }
 
                 if (!Directory.Exists(MetadataFolder))
@@ -72,46 +94,6 @@ namespace Artemis.Plugins.LayerBrushes.JavascriptCanvas.Services
             catch (Exception)
             {
                 // Silently handle folder creation errors
-            }
-        }
-
-        private static void CreateDefaultScripts()
-        {
-            var defaultScripts = new[]
-            {
-                new { Name = "Moving Rainbow Wave", Code = @"for (let x = 0; x < width; x++) {
-    let hue = (x / width + time * 0.5) % 1.0;
-    let rgb = ctx.hslToRgb(hue, 1.0, 0.5);
-    ctx.fillStyle(rgb.r, rgb.g, rgb.b);
-    ctx.fillRect(x, 0, 1, height);
-}" },
-                new { Name = "Breathing Pulse", Code = @"let brightness = (Math.sin(time * 2) + 1) / 2;
-let color = brightness * 255;
-ctx.clear(color * 1, color * 0.4, 0);" },
-                new { Name = "Moving Gradient", Code = @"for (let x = 0; x < width; x++) {
-    let pos = (x / width + time * 0.3) % 1.0;
-    let r = Math.floor(255 * pos);
-    let g = Math.floor(128 * (1 - pos));
-    let b = Math.floor(200 * Math.sin(pos * Math.PI));
-    ctx.fillStyle(r, g, b);
-    ctx.fillRect(x, 0, 1, height);
-}" },
-                new { Name = "Fire Effect", Code = @"for (let x = 0; x < width; x++) {
-    for (let y = 0; y < height; y++) {
-        let yPos = y / height;
-        let noise = Math.sin(x * 0.1 + time * 3) * 0.5 + 0.5;
-        let intensity = (1 - yPos) * noise;
-        let r = Math.floor(255 * intensity);
-        let g = Math.floor(100 * intensity * 0.5);
-        ctx.fillStyle(r, g, 0);
-        ctx.fillRect(x, y, 1, 1);
-    }
-}" }
-            };
-
-            foreach (var script in defaultScripts)
-            {
-                SaveScriptToFile(script.Name, script.Code);
             }
         }
 

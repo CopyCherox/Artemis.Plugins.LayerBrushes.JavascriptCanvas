@@ -1,0 +1,4 @@
+{
+  "ScriptName": "Circular Rings",
+  "JavaScriptCode": "// =========================\r\n// CONFIG\r\n// =========================\r\nconst RING_COUNT = 15;\r\nconst PULSE_SPEED = 1.5;\r\nconst LINE_WIDTH = 30;\r\nconst SATURATION = 0.9;\r\nconst BRIGHTNESS = 0.65;\r\n\r\n// =========================\r\n// RENDER\r\nconst bgColor = ctx.hslToRgb(0.15, 0.4, 0.9);\r\nctx.clear(bgColor.r, bgColor.g, bgColor.b);\r\n\r\nconst cx = width / 2;\r\nconst cy = height / 2;\r\nconst maxRadius = Math.max(width, height);\r\nconst pulse = Math.sin(time * PULSE_SPEED) * 0.2 \u002B 1;\r\n\r\nfor (let i = 0; i \u003C RING_COUNT; i\u002B\u002B) {\r\n    let radius = (i \u002B 1) * (maxRadius / RING_COUNT) * pulse;\r\n    let hue = (i / RING_COUNT \u002B time * 0.1) % 1;\r\n    let rgb = ctx.hslToRgb(hue, SATURATION, BRIGHTNESS);\r\n    \r\n    ctx.strokeStyle(rgb.r, rgb.g, rgb.b, 255);\r\n    ctx.lineWidth(LINE_WIDTH);\r\n    ctx.strokeCircle(cx, cy, radius);\r\n}\r\n"
+}
